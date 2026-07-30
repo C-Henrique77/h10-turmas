@@ -305,6 +305,7 @@
     width:34px;
     height:28px;
     text-align:center;
+    text-align-last:center;
     border:2px solid var(--azul2);
     border-radius:6px;
     background:white;
@@ -313,10 +314,27 @@
     font-size:0.9em;
     flex-shrink:0;
     cursor:pointer;
+    -webkit-appearance:none;
+    appearance:none;
+    padding:0;
   }
   .nivel-select:focus{
     outline:none;
     border-color:var(--amarelo);
+  }
+  @media (max-width:700px){
+    .nivel-select{
+      width:52px;
+      height:38px;
+      font-size:1.15em;
+    }
+    .student-name{
+      font-size:1.05em;
+    }
+    .acao-btn{
+      font-size:1.2em;
+      padding:5px 8px;
+    }
   }
   .nivel-readonly{
     display:inline-flex;
@@ -1599,6 +1617,10 @@
   }
 
   let promptInstalacao = null;
+  const ehIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+  const jaInstalado = window.navigator.standalone === true ||
+    (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+
   window.addEventListener('beforeinstallprompt', (ev)=>{
     ev.preventDefault();
     promptInstalacao = ev;
@@ -1606,7 +1628,18 @@
     if(btn) btn.style.display = 'inline-block';
   });
 
+  // No iPhone/iPad o Safari não dispara "beforeinstallprompt" — mostramos
+  // o botão do mesmo jeito e, ao tocar, explicamos o passo a passo manual.
+  if(ehIOS && !jaInstalado){
+    const btn = document.getElementById('btnInstalarApp');
+    if(btn) btn.style.display = 'inline-block';
+  }
+
   function instalarApp(){
+    if(ehIOS){
+      mostrarInstrucoesIOS();
+      return;
+    }
     if(!promptInstalacao) return;
     promptInstalacao.prompt();
     promptInstalacao.userChoice.finally(()=>{
@@ -1614,6 +1647,25 @@
       const btn = document.getElementById('btnInstalarApp');
       if(btn) btn.style.display = 'none';
     });
+  }
+
+  function mostrarInstrucoesIOS(){
+    if(document.getElementById('instrucoesIOS')) return;
+    const overlay = document.createElement('div');
+    overlay.id = 'instrucoesIOS';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(13,20,40,0.55);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px;';
+    overlay.innerHTML =
+      '<div style="background:white;border-radius:16px;padding:26px 22px;max-width:340px;text-align:center;box-shadow:0 10px 40px rgba(0,0,0,0.3);">' +
+        '<div style="font-size:2.2em;margin-bottom:8px;">📲</div>' +
+        '<h3 style="margin:0 0 12px;color:#0d3b8c;">Instalar o app no iPhone</h3>' +
+        '<p style="text-align:left;font-size:0.95em;color:#3a3f55;line-height:1.5;margin:0 0 8px;">1. Toque no ícone <b>Compartilhar</b> (□ com uma seta ↑) na barra do Safari.</p>' +
+        '<p style="text-align:left;font-size:0.95em;color:#3a3f55;line-height:1.5;margin:0 0 8px;">2. Role e toque em <b>"Adicionar à Tela de Início"</b>.</p>' +
+        '<p style="text-align:left;font-size:0.95em;color:#3a3f55;line-height:1.5;margin:0 0 18px;">3. Toque em <b>"Adicionar"</b> — pronto, o ícone do H10 fica na sua tela.</p>' +
+        '<button type="button" style="background:#1e5fd9;color:white;border:none;padding:10px 24px;border-radius:24px;font-weight:700;cursor:pointer;">Entendi</button>' +
+      '</div>';
+    overlay.querySelector('button').onclick = ()=>overlay.remove();
+    overlay.addEventListener('click', (ev)=>{ if(ev.target === overlay) overlay.remove(); });
+    document.body.appendChild(overlay);
   }
 
   window.addEventListener('appinstalled', ()=>{
