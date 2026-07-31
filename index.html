@@ -888,16 +888,49 @@
     font-weight:600;
     color:#3a4363;
   }
-  .professor-item.fixo{
-    color:#8a8fa3;
-    font-weight:700;
+  .item-btns{
+    display:flex;
+    gap:2px;
+    flex-shrink:0;
   }
+  .professor-edit-btn,
   .professor-remove-btn{
     background:none;
     border:none;
     cursor:pointer;
     font-size:0.9em;
     padding:2px 4px;
+  }
+  .unidades-lista{
+    list-style:none;
+    margin:0 0 10px;
+    padding:0;
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+  }
+  .unidade-item{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    background:#f4f6fb;
+    border-radius:8px;
+    padding:2px 6px 2px 2px;
+    font-size:0.9em;
+  }
+  .unidade-item.ativa{
+    background:#e3ecff;
+  }
+  .unidade-select-btn{
+    background:none;
+    border:none;
+    cursor:pointer;
+    text-align:left;
+    flex:1;
+    padding:6px 8px;
+    font-size:1em;
+    font-weight:600;
+    color:#3a4363;
   }
 
   /* ---- Ações por aluno: editar nome / excluir ---- */
@@ -994,10 +1027,11 @@
       <button type="button" class="cancelar" onclick="esconderFormularioConectar()">Cancelar</button>
     </div>
     <div class="config-section">
-      <label class="config-label">🏫 Unidade</label>
+      <label class="config-label">🏫 Unidades</label>
+      <ul class="unidades-lista" id="unidadesLista"></ul>
       <div class="config-row">
-        <input id="unidadeInput" type="text" placeholder="Nome da unidade"/>
-        <button type="button" onclick="salvarUnidade()">Salvar</button>
+        <input id="novaUnidadeInput" type="text" placeholder="Nome da nova unidade"/>
+        <button type="button" onclick="adicionarUnidade()">+ Adicionar</button>
       </div>
     </div>
     <div class="config-section">
@@ -1571,14 +1605,63 @@
   let alunosRenomeados = {};
 
   // ======================================================================
-  // NOVO: unidade (identifica em qual endereço/unidade da H10 é esse
-  // caderno de chamada) e professores extras (além de Rafa e Manoel,
-  // cadastrados pelas Configurações — cada um vira um card em cada
-  // categoria, igual aos dois professores originais).
+  // NOVO: unidades (cada unidade da H10 tem suas próprias turmas/alunos —
+  // trocar de unidade troca os cards na tela) e professores (Rafa e Manoel
+  // são os originais, mas agora podem ser renomeados/excluídos por unidade,
+  // e cada unidade pode ter professores extras cadastrados nas Configurações).
   // ======================================================================
+  const UNIDADE_PADRAO_ID = 'brooklin-arizona';
   let unidadeAtual = 'Brooklin · Arizona';
+  let unidades = [{ id: UNIDADE_PADRAO_ID, nome: 'Brooklin · Arizona' }];
+  let unidadeAtivaId = UNIDADE_PADRAO_ID;
+  let dadosPorUnidade = {}; // id da unidade -> { campos, extras, removidos, renomeados, professoresExtras, professoresRenomeados, professoresExcluidos }
+
   let professoresExtras = [];
+  let professoresRenomeados = {}; // { rafa: 'Novo nome', manoel: '...' } — só para os dois professores originais
+  let professoresExcluidos = []; // ids de professores originais (rafa/manoel) excluídos NESTA unidade
   const PALETA_PROFESSORES_EXTRA = ['#5b3ea6', '#0f8a6a', '#c23b6b', '#1c7fbf', '#b5590c', '#2e8b7a'];
+
+  // "Foto" da tela original (com os alunos reais de verdade da unidade
+  // padrão) tirada assim que a página carrega, antes de qualquer alteração.
+  // É usada pra: (1) restaurar os cards da unidade padrão depois de trocar
+  // pra outra unidade e voltar; (2) gerar cards em branco (mesmo layout,
+  // sem alunos) pras outras unidades. Também guarda o sufixo de cada
+  // professor por categoria (ex: " · Competitivo" no Master) pra manter
+  // esse texto mesmo depois de um professor ser renomeado.
+  const snapshotPristino = {};
+  const sufixosProfessor = {};
+  function capturarSnapshotPristino(){
+    document.querySelectorAll('.category-section').forEach(sec=>{
+      const grid = sec.querySelector('.teacher-grid');
+      if(!grid) return;
+      snapshotPristino[sec.id] = grid.innerHTML;
+      grid.querySelectorAll('.teacher-card').forEach(card=>{
+        const id = Array.from(card.classList).find(c => c !== 'teacher-card' && c !== 'hidden-by-filter');
+        const h3 = card.querySelector('.teacher-header h3');
+        if(!id || !h3) return;
+        const partes = h3.textContent.trim().split(' · ');
+        sufixosProfessor[sec.id + ':' + id] = partes.length > 1 ? (' · ' + partes.slice(1).join(' · ')) : '';
+      });
+    });
+  }
+  capturarSnapshotPristino();
+
+  function gerarGridVazio(sectionId){
+    const temp = document.createElement('div');
+    temp.innerHTML = snapshotPristino[sectionId] || '';
+    temp.querySelectorAll('li.student-row').forEach(li=>li.remove());
+    temp.querySelectorAll('.badge').forEach(b=>{ b.textContent = '0 alunos'; });
+    return temp.innerHTML;
+  }
+
+  function renderizarGridsParaUnidade(id){
+    const ehPadrao = id === UNIDADE_PADRAO_ID;
+    document.querySelectorAll('.category-section').forEach(sec=>{
+      const grid = sec.querySelector('.teacher-grid');
+      if(!grid) return;
+      grid.innerHTML = ehPadrao ? (snapshotPristino[sec.id] || '') : gerarGridVazio(sec.id);
+    });
+  }
 
   function corProfessorExtra(indice){
     return PALETA_PROFESSORES_EXTRA[indice % PALETA_PROFESSORES_EXTRA.length];
@@ -1587,22 +1670,46 @@
   function atualizarUnidadeNaTela(){
     const label = document.getElementById('unidadeLabel');
     if(label) label.textContent = '📍 Unidade ' + unidadeAtual;
-    const input = document.getElementById('unidadeInput');
-    if(input) input.value = unidadeAtual;
   }
 
-  function salvarUnidade(){
-    const input = document.getElementById('unidadeInput');
-    const valor = (input && input.value || '').trim();
-    if(!valor) return;
-    unidadeAtual = valor;
-    atualizarUnidadeNaTela();
-    salvarLocalBackup();
-    salvarNoBancoDebounced();
+  function gerarIdUnidade(){
+    return 'un' + Date.now().toString(36) + Math.floor(Math.random() * 1000);
   }
 
-  function gerarIdProfessor(){
-    return 'prof' + Date.now().toString(36) + Math.floor(Math.random() * 1000);
+  function dadosPadraoUnidade(){
+    return { campos:{}, extras:[], removidos:[], renomeados:{}, professoresExtras:[], professoresRenomeados:{}, professoresExcluidos:[] };
+  }
+
+  function capturarDadosUnidadeAtual(){
+    return {
+      campos: coletarCampos(),
+      extras: extrasAlunos,
+      removidos: alunosRemovidos,
+      renomeados: alunosRenomeados,
+      professoresExtras: professoresExtras,
+      professoresRenomeados: professoresRenomeados,
+      professoresExcluidos: professoresExcluidos
+    };
+  }
+
+  function nomeExibicaoProfessor(id){
+    if(professoresRenomeados[id]) return professoresRenomeados[id];
+    if(id === 'rafa') return 'Rafa';
+    if(id === 'manoel') return 'Manoel';
+    const extra = professoresExtras.find(p=>p.id === id);
+    return extra ? extra.nome : id;
+  }
+
+  function aplicarNomeProfessorNaTela(id, nome){
+    document.querySelectorAll('.teacher-card.' + id).forEach(card=>{
+      const sectionId = card.closest('.category-section')?.id;
+      const h3 = card.querySelector('.teacher-header h3');
+      if(!h3 || !sectionId) return;
+      const sufixo = sufixosProfessor[sectionId + ':' + id] || '';
+      h3.textContent = nome + sufixo;
+    });
+    document.querySelectorAll('.teacher-filter [data-filter="' + id + '"]').forEach(btn=>{ btn.textContent = nome; });
+    document.querySelectorAll('.transfer-professor-toggle [data-professor="' + id + '"]').forEach(btn=>{ btn.textContent = nome; });
   }
 
   // Cria (se ainda não existir) o card do professor extra em cada categoria,
@@ -1661,25 +1768,121 @@
 
   function renderizarTodosProfessoresExtras(){
     professoresExtras.forEach((prof, indice)=>renderizarProfessorExtra(prof, indice));
+  }
+
+  function aplicarRenomeacoesProfessores(){
+    Object.keys(professoresRenomeados).forEach(id=>{
+      aplicarNomeProfessorNaTela(id, professoresRenomeados[id]);
+    });
+  }
+
+  function aplicarExclusoesProfessores(){
+    professoresExcluidos.forEach(id=>{
+      document.querySelectorAll('.teacher-card.' + id).forEach(el=>el.remove());
+      document.querySelectorAll('.teacher-filter [data-filter="' + id + '"]').forEach(el=>el.remove());
+      document.querySelectorAll('.transfer-professor-toggle [data-professor="' + id + '"]').forEach(el=>el.remove());
+    });
+  }
+
+  // Volta os botões de filtro (categorias) e do modal de transferir para o
+  // estado padrão (só Rafa/Manoel, com o nome original) antes de trocar de
+  // unidade — os cards extras somem sozinhos porque o conteúdo do
+  // teacher-grid é substituído por completo em renderizarGridsParaUnidade.
+  function resetarFiltrosProfessorPadrao(){
+    document.querySelectorAll('.teacher-filter').forEach(barra=>{
+      Array.from(barra.querySelectorAll('.filter-btn')).forEach(btn=>{
+        if(btn.dataset.filter !== 'rafa' && btn.dataset.filter !== 'manoel'){ btn.remove(); return; }
+        btn.textContent = btn.dataset.filter === 'rafa' ? 'Rafa' : 'Manoel';
+        btn.classList.remove('active');
+      });
+      const rafaBtn = barra.querySelector('[data-filter="rafa"]');
+      if(rafaBtn) rafaBtn.classList.add('active');
+    });
+    const toggle = document.querySelector('.transfer-professor-toggle');
+    if(toggle){
+      Array.from(toggle.querySelectorAll('.filter-btn')).forEach(btn=>{
+        if(btn.dataset.professor !== 'rafa' && btn.dataset.professor !== 'manoel'){ btn.remove(); return; }
+        btn.textContent = btn.dataset.professor === 'rafa' ? 'Rafa' : 'Manoel';
+        btn.classList.remove('active');
+      });
+      const rafaBtn = toggle.querySelector('[data-professor="rafa"]');
+      if(rafaBtn) rafaBtn.classList.add('active');
+    }
+  }
+
+  // Monta os dados de uma unidade na tela: professores (extras, renomeados,
+  // excluídos) e depois os alunos (originais restaurados pelo snapshot +
+  // extras/removidos/renomeados/campos salvos).
+  function aplicarDadosDaUnidade(dadosUnidade){
+    professoresExtras = dadosUnidade.professoresExtras || [];
+    professoresRenomeados = dadosUnidade.professoresRenomeados || {};
+    professoresExcluidos = dadosUnidade.professoresExcluidos || [];
+
+    renderizarTodosProfessoresExtras();
+    aplicarRenomeacoesProfessores();
+    aplicarExclusoesProfessores();
+
+    atribuirIdsOriginais();
+    extrasAlunos = dadosUnidade.extras || [];
+    alunosRemovidos = dadosUnidade.removidos || [];
+    alunosRenomeados = dadosUnidade.renomeados || {};
+    restaurarExtrasNaTela();
+    aplicarRenomeacoes();
+    aplicarRemocoes();
+    aplicarCampos(dadosUnidade.campos || {});
+
+    montarBotoesAdicionar();
+    montarBotoesAcao();
+    atualizarContadores();
+    aplicarFiltroInicial();
     atualizarListaProfessoresConfig();
+  }
+
+  function trocarUnidade(novoId){
+    if(!novoId || novoId === unidadeAtivaId) return;
+    const alvo = unidades.find(u=>u.id === novoId);
+    if(!alvo) return;
+
+    dadosPorUnidade[unidadeAtivaId] = capturarDadosUnidadeAtual();
+
+    resetarFiltrosProfessorPadrao();
+
+    unidadeAtivaId = novoId;
+    unidadeAtual = alvo.nome;
+    atualizarUnidadeNaTela();
+
+    renderizarGridsParaUnidade(novoId);
+
+    const dadosUnidade = dadosPorUnidade[novoId] || dadosPadraoUnidade();
+    aplicarDadosDaUnidade(dadosUnidade);
+
+    atualizarListaUnidadesConfig();
+    salvarLocalBackup();
+    salvarNoBancoDebounced();
   }
 
   function atualizarListaProfessoresConfig(){
     const ul = document.getElementById('professoresLista');
     if(!ul) return;
-    let html = '<li class="professor-item fixo">Rafa</li><li class="professor-item fixo">Manoel</li>';
-    professoresExtras.forEach(p=>{
-      html += '<li class="professor-item">' + escapeHtml(p.nome) +
-        ' <button type="button" class="professor-remove-btn" onclick="removerProfessor(\'' + p.id + '\')" title="Remover professor">🗑️</button></li>';
-    });
-    ul.innerHTML = html;
+    const todos = [
+      { id: 'rafa', nome: nomeExibicaoProfessor('rafa') },
+      { id: 'manoel', nome: nomeExibicaoProfessor('manoel') },
+      ...professoresExtras
+    ].filter(p => !professoresExcluidos.includes(p.id));
+    ul.innerHTML = todos.map(p =>
+      '<li class="professor-item">' + escapeHtml(p.nome) +
+        '<span class="item-btns">' +
+          '<button type="button" class="professor-edit-btn" onclick="renomearProfessor(\'' + p.id + '\')" title="Renomear professor">✏️</button>' +
+          '<button type="button" class="professor-remove-btn" onclick="excluirProfessor(\'' + p.id + '\')" title="Excluir professor">🗑️</button>' +
+        '</span></li>'
+    ).join('');
   }
 
   function adicionarProfessor(){
     const input = document.getElementById('novoProfessorInput');
     const nome = (input && input.value || '').trim();
     if(!nome) return;
-    const prof = { id: gerarIdProfessor(), nome };
+    const prof = { id: 'prof' + Date.now().toString(36) + Math.floor(Math.random() * 1000), nome };
     professoresExtras.push(prof);
     renderizarProfessorExtra(prof, professoresExtras.length - 1);
     atualizarListaProfessoresConfig();
@@ -1691,22 +1894,112 @@
     salvarNoBancoDebounced();
   }
 
-  function removerProfessor(id){
+  function renomearProfessor(id){
+    const atual = nomeExibicaoProfessor(id);
+    const novo = window.prompt('Novo nome para "' + atual + '":', atual);
+    if(!novo || !novo.trim() || novo.trim() === atual) return;
+    const nomeFinal = novo.trim();
+    if(id === 'rafa' || id === 'manoel'){
+      professoresRenomeados[id] = nomeFinal;
+    }else{
+      const extra = professoresExtras.find(p=>p.id === id);
+      if(extra) extra.nome = nomeFinal;
+    }
+    aplicarNomeProfessorNaTela(id, nomeFinal);
+    atualizarListaProfessoresConfig();
+    salvarLocalBackup();
+    salvarNoBancoDebounced();
+  }
+
+  function excluirProfessor(id){
     const temAlunos = document.querySelectorAll('.teacher-card.' + id + ' li.student-row').length > 0;
     if(temAlunos){
       window.alert('Esse professor ainda tem alunos em alguma turma. Transfira ou remova os alunos antes de excluir o professor.');
       return;
     }
-    const confirmou = window.confirm('Remover este professor de todas as categorias?');
+    const totalProfessoresAtivos = document.querySelectorAll('#master .teacher-card').length;
+    if(totalProfessoresAtivos <= 1){
+      window.alert('Não é possível excluir o último professor desta unidade.');
+      return;
+    }
+    const nome = nomeExibicaoProfessor(id);
+    const confirmou = window.confirm('Remover "' + nome + '" de todas as categorias desta unidade?');
     if(!confirmou) return;
+
     document.querySelectorAll('.teacher-card.' + id).forEach(el=>el.remove());
     document.querySelectorAll('.teacher-filter [data-filter="' + id + '"]').forEach(el=>el.remove());
     document.querySelectorAll('.transfer-professor-toggle [data-professor="' + id + '"]').forEach(el=>el.remove());
-    professoresExtras = professoresExtras.filter(p=>p.id !== id);
+
+    if(id === 'rafa' || id === 'manoel'){
+      if(!professoresExcluidos.includes(id)) professoresExcluidos.push(id);
+      delete professoresRenomeados[id];
+    }else{
+      professoresExtras = professoresExtras.filter(p=>p.id !== id);
+    }
     atualizarListaProfessoresConfig();
     atualizarContadores();
     salvarLocalBackup();
     salvarNoBancoDebounced();
+  }
+
+  function atualizarListaUnidadesConfig(){
+    const ul = document.getElementById('unidadesLista');
+    if(!ul) return;
+    ul.innerHTML = unidades.map(u =>
+      '<li class="unidade-item' + (u.id === unidadeAtivaId ? ' ativa' : '') + '">' +
+        '<button type="button" class="unidade-select-btn" onclick="trocarUnidade(\'' + u.id + '\')" title="Tornar esta a unidade ativa">' +
+          (u.id === unidadeAtivaId ? '✅ ' : '') + escapeHtml(u.nome) +
+        '</button>' +
+        '<span class="item-btns">' +
+          '<button type="button" class="professor-edit-btn" onclick="renomearUnidade(\'' + u.id + '\')" title="Renomear unidade">✏️</button>' +
+          (unidades.length > 1 ? '<button type="button" class="professor-remove-btn" onclick="excluirUnidade(\'' + u.id + '\')" title="Excluir unidade">🗑️</button>' : '') +
+        '</span></li>'
+    ).join('');
+  }
+
+  function adicionarUnidade(){
+    const input = document.getElementById('novaUnidadeInput');
+    const nome = (input && input.value || '').trim();
+    if(!nome) return;
+    const unidade = { id: gerarIdUnidade(), nome };
+    unidades.push(unidade);
+    input.value = '';
+    atualizarListaUnidadesConfig();
+    salvarLocalBackup();
+    salvarNoBancoDebounced();
+    const trocar = window.confirm('Unidade "' + nome + '" criada. Trocar para ela agora? As turmas dela começam em branco, prontas pra cadastrar alunos.');
+    if(trocar) trocarUnidade(unidade.id);
+  }
+
+  function renomearUnidade(id){
+    const unidade = unidades.find(u=>u.id === id);
+    if(!unidade) return;
+    const novo = window.prompt('Novo nome para a unidade:', unidade.nome);
+    if(!novo || !novo.trim()) return;
+    unidade.nome = novo.trim();
+    if(id === unidadeAtivaId){
+      unidadeAtual = unidade.nome;
+      atualizarUnidadeNaTela();
+    }
+    atualizarListaUnidadesConfig();
+    salvarLocalBackup();
+    salvarNoBancoDebounced();
+  }
+
+  function excluirUnidade(id){
+    if(unidades.length <= 1) return;
+    const unidade = unidades.find(u=>u.id === id);
+    if(!unidade) return;
+    const confirmou = window.confirm('Remover a unidade "' + unidade.nome + '" e todos os dados de turmas/alunos dela? Essa ação não pode ser desfeita.');
+    if(!confirmou) return;
+    unidades = unidades.filter(u=>u.id !== id);
+    delete dadosPorUnidade[id];
+    atualizarListaUnidadesConfig();
+    salvarLocalBackup();
+    salvarNoBancoDebounced();
+    if(id === unidadeAtivaId){
+      trocarUnidade(unidades[0].id);
+    }
   }
 
   function removerLigaDoCard(cardEl){
@@ -2046,7 +2339,7 @@
   let syncId = null;
 
   function dadosPadrao(){
-    return { campos:{}, extras:[], removidos:[], renomeados:{}, unidade:'', professoresExtras:[], atualizadoEm:'' };
+    return { unidades: [{ id: UNIDADE_PADRAO_ID, nome: 'Brooklin · Arizona' }], unidadeAtivaId: UNIDADE_PADRAO_ID, dadosPorUnidade: {}, atualizadoEm:'' };
   }
 
   function blobUrl(id){
@@ -2073,13 +2366,11 @@
 
   function salvarLocalBackup(){
     try{
+      dadosPorUnidade[unidadeAtivaId] = capturarDadosUnidadeAtual();
       localStorage.setItem(BACKUP_KEY, JSON.stringify({
-        campos: coletarCampos(),
-        extras: extrasAlunos,
-        removidos: alunosRemovidos,
-        renomeados: alunosRenomeados,
-        unidade: unidadeAtual,
-        professoresExtras: professoresExtras
+        unidades: unidades,
+        unidadeAtivaId: unidadeAtivaId,
+        dadosPorUnidade: dadosPorUnidade
       }));
     }catch(e){}
   }
@@ -2132,22 +2423,41 @@
   }
 
   function aplicarDadosCarregados(dados){
-    // A unidade e os professores extras precisam existir na tela ANTES de
-    // restaurar os alunos extras, porque um aluno extra pode pertencer a um
-    // professor extra (o card dele só existe depois de renderizado aqui).
-    unidadeAtual = dados.unidade || 'Brooklin · Arizona';
-    professoresExtras = dados.professoresExtras || [];
-    renderizarTodosProfessoresExtras();
+    if(dados.unidades && dados.unidades.length){
+      // Já está no formato novo (multi-unidade).
+      unidades = dados.unidades;
+      unidadeAtivaId = dados.unidadeAtivaId || unidades[0].id;
+      dadosPorUnidade = dados.dadosPorUnidade || {};
+    }else{
+      // Formato antigo (uma unidade só, campos direto na raiz) — migra pra
+      // dentro da unidade padrão, sem mexer em nenhum dado real.
+      unidades = [{ id: UNIDADE_PADRAO_ID, nome: dados.unidade || 'Brooklin · Arizona' }];
+      unidadeAtivaId = UNIDADE_PADRAO_ID;
+      dadosPorUnidade = {};
+      dadosPorUnidade[UNIDADE_PADRAO_ID] = {
+        campos: dados.campos || {},
+        extras: dados.extras || [],
+        removidos: dados.removidos || [],
+        renomeados: dados.renomeados || {},
+        professoresExtras: dados.professoresExtras || [],
+        professoresRenomeados: {},
+        professoresExcluidos: []
+      };
+    }
+
+    const unidadeInfo = unidades.find(u=>u.id === unidadeAtivaId) || unidades[0];
+    unidadeAtual = unidadeInfo.nome;
     atualizarUnidadeNaTela();
 
-    atribuirIdsOriginais();
-    extrasAlunos = dados.extras || [];
-    alunosRemovidos = dados.removidos || [];
-    alunosRenomeados = dados.renomeados || {};
-    restaurarExtrasNaTela();
-    aplicarRenomeacoes();
-    aplicarRemocoes();
-    aplicarCampos(dados.campos || {});
+    // A unidade padrão já começa com os alunos reais no próprio HTML —
+    // só troca os cards na tela se a unidade ativa salva for outra.
+    if(unidadeAtivaId !== UNIDADE_PADRAO_ID){
+      renderizarGridsParaUnidade(unidadeAtivaId);
+    }
+    const dadosUnidadeAtiva = dadosPorUnidade[unidadeAtivaId] || dadosPadraoUnidade();
+    aplicarDadosDaUnidade(dadosUnidadeAtiva);
+
+    atualizarListaUnidadesConfig();
   }
 
   let salvarTimeout = null;
@@ -2158,13 +2468,11 @@
   }
 
   function salvarNoBancoAgora(){
+    dadosPorUnidade[unidadeAtivaId] = capturarDadosUnidadeAtual();
     const dados = {
-      campos: coletarCampos(),
-      extras: extrasAlunos,
-      removidos: alunosRemovidos,
-      renomeados: alunosRenomeados,
-      unidade: unidadeAtual,
-      professoresExtras: professoresExtras,
+      unidades: unidades,
+      unidadeAtivaId: unidadeAtivaId,
+      dadosPorUnidade: dadosPorUnidade,
       atualizadoEm: new Date().toISOString()
     };
     salvarLocalBackup();
@@ -2186,9 +2494,14 @@
   }
 
   function usarBackupLocalComoFallback(){
+    // Importante: retorna o backup bruto (sem misturar com dadosPadrao()) —
+    // aplicarDadosCarregados() já sabe detectar sozinho se é formato antigo
+    // (uma unidade só) ou novo (multi-unidade) e migrar corretamente. Se
+    // misturasse aqui, um backup antigo ficaria com "unidades" vindo do
+    // dadosPadrao() e os dados reais (campos/extras antigos) seriam ignorados.
     try{
       const salvo = localStorage.getItem(BACKUP_KEY);
-      if(salvo) return Object.assign(dadosPadrao(), JSON.parse(salvo));
+      if(salvo) return JSON.parse(salvo);
     }catch(e){}
     return dadosPadrao();
   }
@@ -2229,7 +2542,10 @@
       if(!r.ok) throw new Error('banco não encontrado');
       return r.json();
     }).then(dados=>{
-      aplicarDadosCarregados(Object.assign(dadosPadrao(), dados));
+      // Não mistura com dadosPadrao() aqui pelo mesmo motivo do fallback
+      // local: o banco compartilhado ainda está no formato antigo (uma
+      // unidade só) e aplicarDadosCarregados() já sabe migrar sozinho.
+      aplicarDadosCarregados(dados || {});
       document.getElementById('syncStatus').textContent = '✅ Sincronizado com o banco compartilhado';
       mostrarBarraSync();
       inicializarApp();
