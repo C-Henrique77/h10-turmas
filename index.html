@@ -149,6 +149,19 @@
     color:var(--azul);
     text-align:center;
   }
+  .modal-config{
+    max-width:440px;
+  }
+  .modal-config .sync-status{
+    margin-bottom:10px;
+  }
+  .modal-config .sync-bar{
+    background:#f4f6fb;
+    border-radius:12px;
+    padding:12px 10px;
+    margin-bottom:4px;
+    word-break:break-all;
+  }
   .modal-cat-list{
     display:flex;
     flex-direction:column;
@@ -673,21 +686,19 @@
   }
   .sync-status{
     text-align:center;
-    font-size:0.78em;
+    font-size:0.85em;
     color:#8a8fa3;
-    margin:-6px auto 16px;
-    max-width:1100px;
+    margin:0 auto 14px;
   }
   .sync-bar{
-    max-width:1100px;
-    margin:0 auto 16px;
-    padding:8px 15px;
+    margin:0 auto 6px;
+    padding:8px 0;
     display:flex;
     gap:10px;
     align-items:center;
     justify-content:center;
     flex-wrap:wrap;
-    font-size:0.8em;
+    font-size:0.85em;
     color:#5a6178;
   }
   .sync-mini-btn{
@@ -783,6 +794,7 @@
 <header>
 <div class="user-bar">
   <button id="btnInstalarApp" onclick="instalarApp()" style="display:none;">⬇️ Instalar app</button>
+  <button type="button" onclick="abrirModalConfiguracoes()">⚙️ Configurações</button>
   <span>Acesso compartilhado</span>
   <button onclick="fazerLogout()">Bloquear</button>
 </div>
@@ -809,16 +821,22 @@
   </div>
 </div>
 <div class="tabs-divider"><hr></div>
-<p class="sync-status" id="syncStatus"></p>
-<div class="sync-bar" id="syncBar" style="display:none;">
-  <span id="syncCodeLabel"></span>
-  <button type="button" class="sync-mini-btn" onclick="copiarCodigoSync()">📋 Copiar código</button>
-  <button type="button" class="sync-mini-btn" onclick="mostrarFormularioConectar()">🔗 Conectar em outro banco</button>
-</div>
-<div class="sync-join-form" id="syncJoinForm" style="display:none;">
-  <input id="syncCodeInput" type="text" placeholder="Cole aqui o código de sincronização"/>
-  <button type="button" onclick="conectarComCodigo()">Conectar</button>
-  <button type="button" class="cancelar" onclick="esconderFormularioConectar()">Cancelar</button>
+<div id="modalConfiguracoes" class="modal-overlay" style="display:none;" onclick="if(event.target===this) fecharModalConfiguracoes();">
+  <div class="modal-categorias modal-config">
+    <h3>⚙️ Configurações</h3>
+    <p class="sync-status" id="syncStatus"></p>
+    <div class="sync-bar" id="syncBar" style="display:none;">
+      <span id="syncCodeLabel"></span>
+      <button type="button" class="sync-mini-btn" onclick="copiarCodigoSync()">📋 Copiar código</button>
+      <button type="button" class="sync-mini-btn" onclick="mostrarFormularioConectar()">🔗 Conectar em outro banco</button>
+    </div>
+    <div class="sync-join-form" id="syncJoinForm" style="display:none;">
+      <input id="syncCodeInput" type="text" placeholder="Cole aqui o código de sincronização"/>
+      <button type="button" onclick="conectarComCodigo()">Conectar</button>
+      <button type="button" class="cancelar" onclick="esconderFormularioConectar()">Cancelar</button>
+    </div>
+    <button type="button" class="modal-close-btn" onclick="fecharModalConfiguracoes()">Fechar</button>
+  </div>
 </div>
 <div class="content">
 <!-- MASTER -->
@@ -1148,6 +1166,17 @@
   function fecharModalCategorias(){
     const modal = document.getElementById('modalCategorias');
     if(modal) modal.style.display = 'none';
+  }
+
+  function abrirModalConfiguracoes(){
+    const modal = document.getElementById('modalConfiguracoes');
+    if(modal) modal.style.display = 'flex';
+  }
+
+  function fecharModalConfiguracoes(){
+    const modal = document.getElementById('modalConfiguracoes');
+    if(modal) modal.style.display = 'none';
+    esconderFormularioConectar();
   }
 
   // Sincroniza o botão de categorias com a aba ativa inicial
@@ -1544,6 +1573,10 @@
   // ======================================================================
   const SYNC_KEY = 'h10_sync_id';
   const BACKUP_KEY = 'h10_backup_local';
+  // Banco compartilhado padrão: qualquer aparelho que entrar com a senha
+  // h10volei e ainda não tiver um código salvo localmente entra direto
+  // neste banco, sem precisar colar código nenhum.
+  const DEFAULT_SYNC_ID = '019fb55a-6036-7196-b32d-71e3b680f47f';
   let syncId = null;
 
   function dadosPadrao(){
@@ -1706,26 +1739,28 @@
 
   function iniciarBancoDeDados(){
     try{ syncId = localStorage.getItem(SYNC_KEY); }catch(e){}
-    if(syncId){
-      document.getElementById('syncStatus').textContent = '⏳ Carregando dados do banco compartilhado…';
-      fetch(blobUrl(syncId)).then(r=>{
-        if(!r.ok) throw new Error('banco não encontrado');
-        return r.json();
-      }).then(dados=>{
-        aplicarDadosCarregados(Object.assign(dadosPadrao(), dados));
-        document.getElementById('syncStatus').textContent = '✅ Sincronizado com o banco compartilhado';
-        mostrarBarraSync();
-        inicializarApp();
-      }).catch(err=>{
-        console.error('Erro ao carregar banco:', err);
-        document.getElementById('syncStatus').textContent = '⚠️ Não foi possível carregar o banco compartilhado agora — usando a última cópia salva neste aparelho.';
-        aplicarDadosCarregados(usarBackupLocalComoFallback());
-        mostrarBarraSync();
-        inicializarApp();
-      });
-    }else{
-      criarNovoBancoAutomatico();
+    if(!syncId){
+      // Nenhum código salvo neste aparelho ainda: entra automaticamente
+      // no banco compartilhado padrão do H10 (sem precisar colar código).
+      syncId = DEFAULT_SYNC_ID;
+      try{ localStorage.setItem(SYNC_KEY, syncId); }catch(e){}
     }
+    document.getElementById('syncStatus').textContent = '⏳ Carregando dados do banco compartilhado…';
+    fetch(blobUrl(syncId)).then(r=>{
+      if(!r.ok) throw new Error('banco não encontrado');
+      return r.json();
+    }).then(dados=>{
+      aplicarDadosCarregados(Object.assign(dadosPadrao(), dados));
+      document.getElementById('syncStatus').textContent = '✅ Sincronizado com o banco compartilhado';
+      mostrarBarraSync();
+      inicializarApp();
+    }).catch(err=>{
+      console.error('Erro ao carregar banco:', err);
+      document.getElementById('syncStatus').textContent = '⚠️ Não foi possível carregar o banco compartilhado agora — usando a última cópia salva neste aparelho.';
+      aplicarDadosCarregados(usarBackupLocalComoFallback());
+      mostrarBarraSync();
+      inicializarApp();
+    });
   }
 
   // ======================================================================
