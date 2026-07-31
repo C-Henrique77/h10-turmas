@@ -102,6 +102,78 @@
   .tab-btn[data-target="sub15"].active{ background:#e0951a; color:white; }
   .tab-btn[data-target="sub17"].active{ background:#8c1e5f; color:white; }
 
+  .categorias-btn{
+    background:white;
+    border:3px solid var(--azul);
+    color:var(--azul);
+    font-weight:700;
+    padding:13px 28px;
+    border-radius:40px;
+    cursor:pointer;
+    font-size:1.05em;
+    box-shadow:0 4px 10px rgba(0,0,0,0.12);
+    transition: all .2s ease;
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .categorias-btn:hover{
+    transform: translateY(-2px);
+    box-shadow:0 6px 14px rgba(0,0,0,0.18);
+  }
+  .categorias-btn .chevron{
+    font-size:0.85em;
+    opacity:0.7;
+  }
+
+  .modal-overlay{
+    position:fixed;
+    inset:0;
+    background:rgba(13,20,40,0.55);
+    z-index:1000;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:20px;
+  }
+  .modal-categorias{
+    background:white;
+    border-radius:18px;
+    padding:26px 22px;
+    max-width:360px;
+    width:100%;
+    box-shadow:0 10px 40px rgba(0,0,0,0.3);
+  }
+  .modal-categorias h3{
+    margin:0 0 18px;
+    color:var(--azul);
+    text-align:center;
+  }
+  .modal-cat-list{
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+  }
+  .modal-cat-list .tab-btn{
+    width:100%;
+    justify-content:space-between;
+  }
+  .modal-close-btn{
+    display:block;
+    width:100%;
+    margin-top:20px;
+    background:#eef1f8;
+    border:none;
+    color:var(--azul);
+    font-weight:700;
+    padding:12px;
+    border-radius:24px;
+    cursor:pointer;
+  }
+  .modal-close-btn:hover{
+    background:#e0e6f5;
+  }
+
   .count-badge{
     background:var(--amarelo);
     color:var(--azul);
@@ -689,11 +761,22 @@
 <p>Turmas — 2º Semestre</p>
 </header>
 <div class="tabs">
-<button class="tab-btn active" data-target="master">🏐 Master <span class="count-badge">23</span></button>
-<button class="tab-btn" data-target="mini">🏐 Mini <span class="count-badge">24</span></button>
-<button class="tab-btn" data-target="sub13">🏐 Sub-13 <span class="count-badge">16</span></button>
-<button class="tab-btn" data-target="sub15">🏐 Sub-15 <span class="count-badge">24</span></button>
-<button class="tab-btn" data-target="sub17">🏐 Sub-17 <span class="count-badge">0</span></button>
+<button type="button" id="btnCategorias" class="categorias-btn" onclick="abrirModalCategorias()">
+  📋 <span id="categoriaAtualLabel">Master</span> <span class="count-badge" id="categoriaAtualBadge">23</span> <span class="chevron">▾</span>
+</button>
+</div>
+<div id="modalCategorias" class="modal-overlay" style="display:none;" onclick="if(event.target===this) fecharModalCategorias();">
+  <div class="modal-categorias">
+    <h3>Escolha a categoria</h3>
+    <div class="modal-cat-list">
+      <button class="tab-btn active" data-target="master">🏐 Master <span class="count-badge">23</span></button>
+      <button class="tab-btn" data-target="mini">🏐 Mini <span class="count-badge">24</span></button>
+      <button class="tab-btn" data-target="sub13">🏐 Sub-13 <span class="count-badge">16</span></button>
+      <button class="tab-btn" data-target="sub15">🏐 Sub-15 <span class="count-badge">24</span></button>
+      <button class="tab-btn" data-target="sub17">🏐 Sub-17 <span class="count-badge">0</span></button>
+    </div>
+    <button type="button" class="modal-close-btn" onclick="fecharModalCategorias()">Fechar</button>
+  </div>
 </div>
 <div class="tabs-divider"><hr></div>
 <p class="sync-status" id="syncStatus"></p>
@@ -1012,8 +1095,37 @@
       sections.forEach(s=>s.classList.remove('active'));
       btn.classList.add('active');
       document.getElementById(btn.dataset.target).classList.add('active');
+      atualizarBotaoCategorias(btn);
+      fecharModalCategorias();
     });
   });
+
+  // ---- Modal de seleção de categorias ----
+  function atualizarBotaoCategorias(btn){
+    const label = document.getElementById('categoriaAtualLabel');
+    const badge = document.getElementById('categoriaAtualBadge');
+    if(label){
+      const nomeCompleto = btn.textContent.trim().replace(/\s*\d+\s*$/, '').trim();
+      label.textContent = nomeCompleto.replace(/^🏐\s*/, '');
+    }
+    if(badge){
+      const contBtn = btn.querySelector('.count-badge');
+      badge.textContent = contBtn ? contBtn.textContent : '';
+    }
+  }
+
+  function abrirModalCategorias(){
+    const modal = document.getElementById('modalCategorias');
+    if(modal) modal.style.display = 'flex';
+  }
+
+  function fecharModalCategorias(){
+    const modal = document.getElementById('modalCategorias');
+    if(modal) modal.style.display = 'none';
+  }
+
+  // Sincroniza o botão de categorias com a aba ativa inicial
+  atualizarBotaoCategorias(document.querySelector('.tab-btn.active') || buttons[0]);
 
 
   // ---- Salvamento automático dos níveis (localStorage do navegador) ----
@@ -1132,6 +1244,10 @@
       });
       const tabBtn = document.querySelector(`.tab-btn[data-target="${sectionEl.id}"] .count-badge`);
       if(tabBtn) tabBtn.textContent = total;
+      if(sectionEl.classList.contains('active')){
+        const badgeAtual = document.getElementById('categoriaAtualBadge');
+        if(badgeAtual) badgeAtual.textContent = total;
+      }
     });
   }
 
