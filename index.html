@@ -2220,6 +2220,37 @@
     clone.querySelectorAll('.add-student-btn, .add-student-form').forEach(el=>el.remove());
     clone.querySelectorAll('.student-actions').forEach(el=>el.remove());
 
+    // NOVO: só no arquivo compartilhado — alternar entre "por categoria"
+    // (o mesmo menu de sempre) e "todas as turmas do professor" (mostra
+    // Master/Mini/Sub-13/Sub-15/Sub-17 juntas, só do professor escolhido).
+    // Continua tudo somente leitura, é só uma forma diferente de visualizar.
+    // Insere depois da linha pontilhada (.tabs-divider), não logo após .tabs —
+    // colocar ali por cima faria ficar escondido atrás da curva amarela do
+    // cabeçalho (mesmo problema já corrigido antes na barra de sincronização).
+    const tabsDividerEl = clone.querySelector('.tabs-divider');
+    if(tabsDividerEl){
+      tabsDividerEl.insertAdjacentHTML('afterend',
+        '<div class="view-switch">' +
+          '<button type="button" class="view-switch-btn active" data-view="categoria">🗂️ Por categoria</button>' +
+          '<button type="button" class="view-switch-btn" data-view="professor">👤 Todas as turmas do professor</button>' +
+        '</div>' +
+        '<div class="professor-picker" id="professorPicker" style="display:none;">' +
+          '<button type="button" class="filter-btn active" data-professor="rafa">Rafa</button>' +
+          '<button type="button" class="filter-btn" data-professor="manoel">Manoel</button>' +
+        '</div>'
+      );
+    }
+    const estiloView = document.createElement('style');
+    estiloView.textContent = `
+      .view-switch{ max-width:1100px; margin:-10px auto 18px; display:flex; gap:10px; justify-content:center; flex-wrap:wrap; padding:0 15px; }
+      .view-switch-btn{ background:white; border:2px solid var(--azul2); color:var(--azul2); font-weight:700; padding:8px 16px; border-radius:20px; cursor:pointer; font-size:0.85em; }
+      .view-switch-btn.active{ background:var(--azul2); color:white; }
+      .professor-picker{ max-width:1100px; margin:-10px auto 18px; display:flex; gap:10px; justify-content:center; padding:0 15px; }
+      .category-section.modo-professor{ display:block; }
+      .category-section.modo-professor .cat-title{ margin-top:34px; }
+    `;
+    clone.querySelector('head').appendChild(estiloView);
+
     // substitui o painel de controles por uma versão só com os botões de exportar
     const painel = clone.querySelector('.controls-panel');
     if(painel){
@@ -2320,6 +2351,68 @@
         const ativo = barra.querySelector('.filter-btn.active') || barra.querySelector('.filter-btn');
         if(ativo) filtrarProfessor(sectionId, ativo.dataset.filter, ativo);
       });
+
+      // ---- NOVO: alternar entre visão por categoria e visão "todas as
+      // turmas do professor" (só existe nesta versão compartilhada) ----
+      let modoVisualizacao = 'categoria';
+      let professorVisualizacao = 'rafa';
+
+      function aplicarModoVisualizacao(){
+        const sections = document.querySelectorAll('.category-section');
+        const btnCategorias = document.getElementById('btnCategorias');
+        const picker = document.getElementById('professorPicker');
+        if(modoVisualizacao === 'categoria'){
+          if(btnCategorias) btnCategorias.style.display = '';
+          if(picker) picker.style.display = 'none';
+          document.querySelectorAll('.teacher-filter').forEach(el=>{ el.style.display = ''; });
+          sections.forEach(s=>{
+            s.classList.remove('modo-professor');
+            s.querySelectorAll('.teacher-card').forEach(c=>c.classList.remove('hidden-by-filter'));
+          });
+          document.querySelectorAll('.teacher-filter').forEach(barra=>{
+            const sectionId = barra.dataset.section;
+            const ativo = barra.querySelector('.filter-btn.active') || barra.querySelector('.filter-btn');
+            if(ativo) filtrarProfessor(sectionId, ativo.dataset.filter, ativo);
+          });
+        }else{
+          if(btnCategorias) btnCategorias.style.display = 'none';
+          if(picker) picker.style.display = 'flex';
+          document.querySelectorAll('.teacher-filter').forEach(el=>{ el.style.display = 'none'; });
+          sections.forEach(s=>{
+            s.classList.add('modo-professor');
+            const grid = s.querySelector('.teacher-grid');
+            const cards = s.querySelectorAll('.teacher-card');
+            cards.forEach(card=>{
+              const ehRafa = card.classList.contains('rafa');
+              const ehManoel = card.classList.contains('manoel');
+              const mostrar = professorVisualizacao === 'rafa' ? ehRafa : ehManoel;
+              card.classList.toggle('hidden-by-filter', !mostrar);
+            });
+            const visiveis = Array.from(cards).filter(c=>!c.classList.contains('hidden-by-filter')).length;
+            if(grid) grid.classList.toggle('single-card', visiveis === 1);
+          });
+        }
+      }
+
+      document.querySelectorAll('.view-switch-btn').forEach(btn=>{
+        btn.addEventListener('click', ()=>{
+          document.querySelectorAll('.view-switch-btn').forEach(b=>b.classList.remove('active'));
+          btn.classList.add('active');
+          modoVisualizacao = btn.dataset.view;
+          aplicarModoVisualizacao();
+        });
+      });
+      const professorPickerEl = document.getElementById('professorPicker');
+      if(professorPickerEl){
+        professorPickerEl.querySelectorAll('.filter-btn').forEach(btn=>{
+          btn.addEventListener('click', ()=>{
+            professorPickerEl.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
+            btn.classList.add('active');
+            professorVisualizacao = btn.dataset.professor;
+            aplicarModoVisualizacao();
+          });
+        });
+      }
 
       function nivelValue(el){
         if(!el) return '';
