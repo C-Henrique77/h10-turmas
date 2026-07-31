@@ -60,10 +60,20 @@
     width:auto;
   }
   @media (max-width:700px){
+    header{
+      padding:18px 16px 80px;
+    }
+    /* No celular a logo fica centralizada em cima do título, em vez de
+       flutuar por cima do texto — evita a logo "colada" no nome. */
     header .header-logo{
-      height:56px;
-      top:12px;
-      left:12px;
+      position:static;
+      display:block;
+      height:54px;
+      margin:0 auto 10px;
+    }
+    header h1{
+      font-size:1.5em;
+      line-height:1.25;
     }
   }
   header .stripe{
@@ -118,8 +128,7 @@
   body.modo-admin .student-actions,
   body.modo-admin .professor-edit-btn,
   body.modo-admin .professor-remove-btn,
-  body.modo-admin .config-row,
-  body.modo-admin .ctrl-btn{
+  body.modo-admin .config-row{
     display:none !important;
   }
   .tabs{
@@ -644,32 +653,6 @@
     min-width:140px;
   }
 
-  .controls-panel{
-    max-width:1100px;
-    margin:36px auto 10px;
-    display:flex;
-    gap:10px;
-    flex-wrap:wrap;
-    justify-content:center;
-    padding:20px 15px 0;
-    border-top:2px dashed #d5dbeb;
-  }
-  .ctrl-btn{
-    background:white;
-    border:2px solid var(--amarelo);
-    color:var(--azul);
-    font-weight:700;
-    padding:9px 18px;
-    border-radius:30px;
-    cursor:pointer;
-    font-size:0.9em;
-    box-shadow:0 3px 8px rgba(0,0,0,0.1);
-    transition: all .2s ease;
-  }
-  .ctrl-btn:hover{
-    background:var(--amarelo2);
-  }
-
   /* ---- Filtro por professor dentro de cada categoria ---- */
   .teacher-filter{
     display:flex;
@@ -861,6 +844,19 @@
   }
   .user-bar button:hover{
     background:rgba(255,255,255,0.35);
+  }
+  @media (max-width:700px){
+    .user-bar{
+      position:static;
+      justify-content:center;
+      flex-wrap:wrap;
+      margin:0 0 12px;
+      font-size:0.78em;
+      gap:8px;
+    }
+    .user-bar button{
+      padding:4px 11px;
+    }
   }
   .sync-status{
     text-align:center;
@@ -1365,9 +1361,6 @@
 </div>
 </div>
 </section>
-</div>
-<div class="controls-panel">
-<button class="ctrl-btn" onclick="gerarVersaoCompartilhar()">📤 Gerar versão para compartilhar</button>
 </div>
 <footer>H10 Escola de Voleibol — organização gerada a partir do caderno de chamada</footer>
 </div>
@@ -2848,285 +2841,6 @@
     event.target.value = '';
   }
 
-  // ---- Gerar versão somente leitura para compartilhar ----
-  // Formata um valor aaaa-mm-dd (input type=date) como dd/mm/aaaa para exibição.
-  function formatarDataBR(iso){
-    const m = (iso || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
-    if(!m) return '–';
-    return m[3] + '/' + m[2] + '/' + m[1];
-  }
-
-  function gerarVersaoCompartilhar(){
-    const clone = document.documentElement.cloneNode(true);
-
-    // Tela de "somente leitura": tira os controles que não fazem sentido
-    // numa versão compartilhada (instalar app, configurações, editar).
-    const userBar = clone.querySelector('.user-bar');
-    if(userBar) userBar.innerHTML = '<span>🔒 Somente leitura</span>';
-    clone.querySelectorAll('#modalConfiguracoes, #modalTransferir').forEach(el=>el.remove());
-    clone.querySelectorAll('.add-student-btn, .add-student-form').forEach(el=>el.remove());
-    clone.querySelectorAll('.student-actions').forEach(el=>el.remove());
-
-    // NOVO: só no arquivo compartilhado — alternar entre "por categoria"
-    // (o mesmo menu de sempre) e "todas as turmas do professor" (mostra
-    // Master/Mini/Sub-13/Sub-15/Sub-17 juntas, só do professor escolhido).
-    // Continua tudo somente leitura, é só uma forma diferente de visualizar.
-    // Insere depois da linha pontilhada (.tabs-divider), não logo após .tabs —
-    // colocar ali por cima faria ficar escondido atrás da curva amarela do
-    // cabeçalho (mesmo problema já corrigido antes na barra de sincronização).
-    const tabsDividerEl = clone.querySelector('.tabs-divider');
-    // Monta os botões do seletor de professor a partir dos professores que
-    // já existem na tela agora (Rafa, Manoel e qualquer professor extra
-    // cadastrado nas Configurações) — assim o arquivo compartilhado sempre
-    // reflete a lista atual, sem precisar mexer aqui de novo no futuro.
-    const primeiraBarraFiltro = clone.querySelector('.teacher-filter');
-    const botoesProfessor = primeiraBarraFiltro ? Array.from(primeiraBarraFiltro.querySelectorAll('.filter-btn')) : [];
-    const professorPickerBtnsHtml = botoesProfessor.map((b, i) =>
-      '<button type="button" class="filter-btn' + (i === 0 ? ' active' : '') + '" data-professor="' + b.dataset.filter + '">' + escapeHtml(b.textContent.trim()) + '</button>'
-    ).join('');
-    const professorInicial = botoesProfessor.length ? botoesProfessor[0].dataset.filter : 'rafa';
-    if(tabsDividerEl){
-      tabsDividerEl.insertAdjacentHTML('afterend',
-        '<div class="view-switch">' +
-          '<button type="button" class="view-switch-btn active" data-view="categoria">🗂️ Por categoria</button>' +
-          '<button type="button" class="view-switch-btn" data-view="professor">👤 Todas as turmas do professor</button>' +
-        '</div>' +
-        '<div class="professor-picker" id="professorPicker" style="display:none;">' +
-          professorPickerBtnsHtml +
-        '</div>'
-      );
-    }
-    const estiloView = document.createElement('style');
-    estiloView.textContent = `
-      .view-switch{ max-width:1100px; margin:14px auto 0; display:flex; gap:10px; justify-content:center; flex-wrap:wrap; padding:0 15px; }
-      .view-switch-btn{ background:white; border:2px solid var(--azul2); color:var(--azul2); font-weight:700; padding:8px 16px; border-radius:20px; cursor:pointer; font-size:0.85em; }
-      .view-switch-btn.active{ background:var(--azul2); color:white; }
-      .professor-picker{ max-width:1100px; margin:14px auto 0; display:flex; gap:10px; justify-content:center; padding:0 15px; }
-      .content.modo-professor-grid{ display:grid; grid-template-columns:repeat(auto-fit, minmax(340px, 1fr)); gap:20px 28px; align-items:start; }
-      .content.modo-professor-grid .category-section{ display:none; margin:0; }
-      .content.modo-professor-grid .category-section.modo-professor{ display:block; }
-      .category-section.modo-professor .cat-title{ margin-top:10px; margin-bottom:14px; font-size:1.25em; }
-    `;
-    clone.querySelector('head').appendChild(estiloView);
-
-    // substitui o painel de controles por uma versão só com os botões de exportar
-    const painel = clone.querySelector('.controls-panel');
-    if(painel){
-      painel.innerHTML = `
-        <button class="ctrl-btn" onclick="exportarNiveis()">⬇️ Exportar níveis (JSON)</button>
-        <button class="ctrl-btn" onclick="exportarNiveisCSV()">📊 Exportar níveis (Excel/CSV)</button>
-      `;
-    }
-
-    // substitui cada campo editável por uma versão fixa mostrando o valor atual
-    // (somente leitura) — nível, nascimento, camisa, eventos e liga.
-    function paraReadonly(seletor, classe, formatar){
-      const originais = document.querySelectorAll(seletor);
-      const clones = clone.querySelectorAll(seletor);
-      clones.forEach((el, i)=>{
-        const original = originais[i];
-        const valor = formatar ? formatar(original) : (original.value || '–');
-        const span = document.createElement('span');
-        span.className = classe;
-        span.textContent = valor;
-        el.replaceWith(span);
-      });
-    }
-    paraReadonly('.nivel-select', 'nivel-readonly', o => o.value || '–');
-    paraReadonly('.nasc-input', 'campo-readonly nasc-readonly', o => formatarDataBR(o.value));
-    paraReadonly('.camisa-input', 'campo-readonly camisa-readonly', o => o.value || '–');
-    paraReadonly('.eventos-input', 'campo-readonly eventos-readonly', o => o.value || '–');
-
-    const ligaOriginais = document.querySelectorAll('.liga-check');
-    const ligaClones = clone.querySelectorAll('.liga-check');
-    ligaClones.forEach((el, i)=>{
-      el.disabled = true;
-      el.checked = ligaOriginais[i].checked;
-    });
-
-    // remove os scripts originais e recria só o necessário: troca de categoria
-    // (modal), troca de professor e exportar — tudo sem poder editar nada.
-    clone.querySelectorAll('script').forEach(s=>s.remove());
-    const script = document.createElement('script');
-    script.textContent = `
-      const buttons = document.querySelectorAll('.tab-btn');
-      const sections = document.querySelectorAll('.category-section');
-      buttons.forEach(btn=>{
-        btn.addEventListener('click', ()=>{
-          buttons.forEach(b=>b.classList.remove('active'));
-          sections.forEach(s=>s.classList.remove('active'));
-          btn.classList.add('active');
-          document.getElementById(btn.dataset.target).classList.add('active');
-          atualizarBotaoCategorias(btn);
-          fecharModalCategorias();
-        });
-      });
-
-      function atualizarBotaoCategorias(btn){
-        const label = document.getElementById('categoriaAtualLabel');
-        const badge = document.getElementById('categoriaAtualBadge');
-        if(label){
-          const nomeCompleto = btn.textContent.trim().replace(/\\s*\\d+\\s*$/, '').trim();
-          label.textContent = nomeCompleto.replace(/^🏐\\s*/, '');
-        }
-        if(badge){
-          const contBtn = btn.querySelector('.count-badge');
-          badge.textContent = contBtn ? contBtn.textContent : '';
-        }
-      }
-
-      function abrirModalCategorias(){
-        const modal = document.getElementById('modalCategorias');
-        if(modal) modal.style.display = 'flex';
-      }
-
-      function fecharModalCategorias(){
-        const modal = document.getElementById('modalCategorias');
-        if(modal) modal.style.display = 'none';
-      }
-
-      function filtrarProfessor(sectionId, professor, btnEl){
-        const section = document.getElementById(sectionId);
-        if(!section) return;
-        section.querySelectorAll('.teacher-filter .filter-btn').forEach(b=>b.classList.remove('active'));
-        btnEl.classList.add('active');
-        const grid = section.querySelector('.teacher-grid');
-        const cards = section.querySelectorAll('.teacher-card');
-        cards.forEach(card=>{
-          card.classList.toggle('hidden-by-filter', !card.classList.contains(professor));
-        });
-        const visiveis = Array.from(cards).filter(c=>!c.classList.contains('hidden-by-filter')).length;
-        if(grid) grid.classList.toggle('single-card', visiveis === 1);
-      }
-
-      document.querySelectorAll('.teacher-filter').forEach(barra=>{
-        const sectionId = barra.dataset.section;
-        const ativo = barra.querySelector('.filter-btn.active') || barra.querySelector('.filter-btn');
-        if(ativo) filtrarProfessor(sectionId, ativo.dataset.filter, ativo);
-      });
-
-      // ---- NOVO: alternar entre visão por categoria e visão "todas as
-      // turmas do professor" (só existe nesta versão compartilhada) ----
-      let modoVisualizacao = 'categoria';
-      let professorVisualizacao = '${professorInicial}';
-
-      function aplicarModoVisualizacao(){
-        const sections = document.querySelectorAll('.category-section');
-        const btnCategorias = document.getElementById('btnCategorias');
-        const picker = document.getElementById('professorPicker');
-        const conteudoEl = document.querySelector('.content');
-        if(modoVisualizacao === 'categoria'){
-          if(btnCategorias) btnCategorias.style.display = '';
-          if(picker) picker.style.display = 'none';
-          if(conteudoEl) conteudoEl.classList.remove('modo-professor-grid');
-          document.querySelectorAll('.teacher-filter').forEach(el=>{ el.style.display = ''; });
-          sections.forEach(s=>{
-            s.classList.remove('modo-professor');
-            s.querySelectorAll('.teacher-card').forEach(c=>c.classList.remove('hidden-by-filter'));
-          });
-          document.querySelectorAll('.teacher-filter').forEach(barra=>{
-            const sectionId = barra.dataset.section;
-            const ativo = barra.querySelector('.filter-btn.active') || barra.querySelector('.filter-btn');
-            if(ativo) filtrarProfessor(sectionId, ativo.dataset.filter, ativo);
-          });
-        }else{
-          if(btnCategorias) btnCategorias.style.display = 'none';
-          if(picker) picker.style.display = 'flex';
-          if(conteudoEl) conteudoEl.classList.add('modo-professor-grid');
-          document.querySelectorAll('.teacher-filter').forEach(el=>{ el.style.display = 'none'; });
-          sections.forEach(s=>{
-            s.classList.add('modo-professor');
-            const grid = s.querySelector('.teacher-grid');
-            const cards = s.querySelectorAll('.teacher-card');
-            cards.forEach(card=>{
-              card.classList.toggle('hidden-by-filter', !card.classList.contains(professorVisualizacao));
-            });
-            const visiveis = Array.from(cards).filter(c=>!c.classList.contains('hidden-by-filter')).length;
-            if(grid) grid.classList.toggle('single-card', visiveis === 1);
-          });
-        }
-      }
-
-      document.querySelectorAll('.view-switch-btn').forEach(btn=>{
-        btn.addEventListener('click', ()=>{
-          document.querySelectorAll('.view-switch-btn').forEach(b=>b.classList.remove('active'));
-          btn.classList.add('active');
-          modoVisualizacao = btn.dataset.view;
-          aplicarModoVisualizacao();
-        });
-      });
-      const professorPickerEl = document.getElementById('professorPicker');
-      if(professorPickerEl){
-        professorPickerEl.querySelectorAll('.filter-btn').forEach(btn=>{
-          btn.addEventListener('click', ()=>{
-            professorPickerEl.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
-            btn.classList.add('active');
-            professorVisualizacao = btn.dataset.professor;
-            aplicarModoVisualizacao();
-          });
-        });
-      }
-
-      function nivelValue(el){
-        if(!el) return '';
-        const t = el.textContent.trim();
-        return t === '–' ? '' : t;
-      }
-
-      function coletarDados(){
-        const dados = [];
-        document.querySelectorAll('.category-section').forEach(sectionEl=>{
-          const categoria = sectionEl.querySelector('.cat-title span')?.textContent.trim() || '';
-          sectionEl.querySelectorAll('.teacher-card').forEach(cardEl=>{
-            const professor = cardEl.querySelector('.teacher-header h3')?.textContent.trim() || '';
-            cardEl.querySelectorAll('ul.student-list > li').forEach(li=>{
-              const liClone = li.cloneNode(true);
-              liClone.querySelectorAll('.campo-readonly, .nivel-readonly').forEach(el=>el.remove());
-              const aluno = liClone.textContent.replace(/\\s+/g,' ').trim();
-              const nivelEl = li.querySelector('.nivel-readonly');
-              const nivel = nivelValue(nivelEl);
-              dados.push({ categoria, professor, aluno, nivel });
-            });
-          });
-        });
-        return dados;
-      }
-
-      function baixar(blob, nome){
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = nome;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-      }
-
-      function exportarNiveis(){
-        const dados = coletarDados();
-        baixar(new Blob([JSON.stringify(dados, null, 2)], {type:'application/json'}), 'h10_niveis.json');
-      }
-
-      function exportarNiveisCSV(){
-        const linhas = [['Categoria','Professor','Aluno','Nivel'], ...coletarDados().map(d => [d.categoria, d.professor, d.aluno, d.nivel])];
-        const csv = linhas.map(l => l.map(c => '"' + String(c).replace(/"/g,'""') + '"').join(',')).join('\\n');
-        baixar(new Blob(['\\uFEFF' + csv], {type:'text/csv;charset=utf-8;'}), 'h10_niveis.csv');
-      }
-    `;
-    clone.querySelector('body').appendChild(script);
-
-    const htmlFinal = '<!DOCTYPE html>\n' + clone.outerHTML;
-    const blob = new Blob([htmlFinal], {type:'text/html'});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'h10_turmas_compartilhar.html';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  }
 </script>
 </body>
 </html>
