@@ -876,8 +876,7 @@
 <div class="user-bar">
   <button id="btnInstalarApp" onclick="instalarApp()" style="display:none;">⬇️ Instalar app</button>
   <button type="button" onclick="abrirModalConfiguracoes()">⚙️ Configurações</button>
-  <span>Acesso compartilhado</span>
-  <button onclick="fazerLogout()">Bloquear</button>
+  <button onclick="fazerLogout()">Sair</button>
 </div>
 <h1>H10 · Escola de Voleibol</h1>
 <div class="stripe"></div>
@@ -2242,12 +2241,14 @@
     }
     const estiloView = document.createElement('style');
     estiloView.textContent = `
-      .view-switch{ max-width:1100px; margin:-10px auto 18px; display:flex; gap:10px; justify-content:center; flex-wrap:wrap; padding:0 15px; }
+      .view-switch{ max-width:1100px; margin:14px auto 0; display:flex; gap:10px; justify-content:center; flex-wrap:wrap; padding:0 15px; }
       .view-switch-btn{ background:white; border:2px solid var(--azul2); color:var(--azul2); font-weight:700; padding:8px 16px; border-radius:20px; cursor:pointer; font-size:0.85em; }
       .view-switch-btn.active{ background:var(--azul2); color:white; }
-      .professor-picker{ max-width:1100px; margin:-10px auto 18px; display:flex; gap:10px; justify-content:center; padding:0 15px; }
-      .category-section.modo-professor{ display:block; }
-      .category-section.modo-professor .cat-title{ margin-top:34px; }
+      .professor-picker{ max-width:1100px; margin:14px auto 0; display:flex; gap:10px; justify-content:center; padding:0 15px; }
+      .content.modo-professor-grid{ display:grid; grid-template-columns:repeat(auto-fit, minmax(340px, 1fr)); gap:20px 28px; align-items:start; }
+      .content.modo-professor-grid .category-section{ display:none; margin:0; }
+      .content.modo-professor-grid .category-section.modo-professor{ display:block; }
+      .category-section.modo-professor .cat-title{ margin-top:10px; margin-bottom:14px; font-size:1.25em; }
     `;
     clone.querySelector('head').appendChild(estiloView);
 
@@ -2361,9 +2362,11 @@
         const sections = document.querySelectorAll('.category-section');
         const btnCategorias = document.getElementById('btnCategorias');
         const picker = document.getElementById('professorPicker');
+        const conteudoEl = document.querySelector('.content');
         if(modoVisualizacao === 'categoria'){
           if(btnCategorias) btnCategorias.style.display = '';
           if(picker) picker.style.display = 'none';
+          if(conteudoEl) conteudoEl.classList.remove('modo-professor-grid');
           document.querySelectorAll('.teacher-filter').forEach(el=>{ el.style.display = ''; });
           sections.forEach(s=>{
             s.classList.remove('modo-professor');
@@ -2377,6 +2380,7 @@
         }else{
           if(btnCategorias) btnCategorias.style.display = 'none';
           if(picker) picker.style.display = 'flex';
+          if(conteudoEl) conteudoEl.classList.add('modo-professor-grid');
           document.querySelectorAll('.teacher-filter').forEach(el=>{ el.style.display = 'none'; });
           sections.forEach(s=>{
             s.classList.add('modo-professor');
