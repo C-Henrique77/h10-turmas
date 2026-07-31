@@ -528,6 +528,24 @@
     font-size:0.9em;
     flex-shrink:0;
   }
+  .campo-readonly{
+    display:inline-flex;
+    align-items:center;
+    border:1px solid #d5dbeb;
+    border-radius:6px;
+    padding:3px 8px;
+    font-size:0.85em;
+    color:#5a6178;
+    background:#f4f6fb;
+  }
+  .camisa-readonly{
+    justify-content:center;
+    min-width:32px;
+  }
+  .eventos-readonly{
+    flex:1;
+    min-width:140px;
+  }
 
   .controls-panel{
     max-width:1100px;
@@ -2184,8 +2202,23 @@
   }
 
   // ---- Gerar versão somente leitura para compartilhar ----
+  // Formata um valor aaaa-mm-dd (input type=date) como dd/mm/aaaa para exibição.
+  function formatarDataBR(iso){
+    const m = (iso || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if(!m) return '–';
+    return m[3] + '/' + m[2] + '/' + m[1];
+  }
+
   function gerarVersaoCompartilhar(){
     const clone = document.documentElement.cloneNode(true);
+
+    // Tela de "somente leitura": tira os controles que não fazem sentido
+    // numa versão compartilhada (instalar app, configurações, editar).
+    const userBar = clone.querySelector('.user-bar');
+    if(userBar) userBar.innerHTML = '<span>🔒 Somente leitura</span>';
+    clone.querySelectorAll('#modalConfiguracoes, #modalTransferir').forEach(el=>el.remove());
+    clone.querySelectorAll('.add-student-btn, .add-student-form').forEach(el=>el.remove());
+    clone.querySelectorAll('.student-actions').forEach(el=>el.remove());
 
     // substitui o painel de controles por uma versão só com os botões de exportar
     const painel = clone.querySelector('.controls-panel');
@@ -2196,18 +2229,34 @@
       `;
     }
 
-    // substitui cada select por uma caixinha fixa mostrando o valor atual (somente leitura)
-    const selectsOriginais = document.querySelectorAll('.nivel-select');
-    const selectsClone = clone.querySelectorAll('.nivel-select');
-    selectsClone.forEach((selEl, i)=>{
-      const valorAtual = selectsOriginais[i].value || '–';
-      const span = document.createElement('span');
-      span.className = 'nivel-readonly';
-      span.textContent = valorAtual;
-      selEl.replaceWith(span);
+    // substitui cada campo editável por uma versão fixa mostrando o valor atual
+    // (somente leitura) — nível, nascimento, camisa, eventos e liga.
+    function paraReadonly(seletor, classe, formatar){
+      const originais = document.querySelectorAll(seletor);
+      const clones = clone.querySelectorAll(seletor);
+      clones.forEach((el, i)=>{
+        const original = originais[i];
+        const valor = formatar ? formatar(original) : (original.value || '–');
+        const span = document.createElement('span');
+        span.className = classe;
+        span.textContent = valor;
+        el.replaceWith(span);
+      });
+    }
+    paraReadonly('.nivel-select', 'nivel-readonly', o => o.value || '–');
+    paraReadonly('.nasc-input', 'campo-readonly nasc-readonly', o => formatarDataBR(o.value));
+    paraReadonly('.camisa-input', 'campo-readonly camisa-readonly', o => o.value || '–');
+    paraReadonly('.eventos-input', 'campo-readonly eventos-readonly', o => o.value || '–');
+
+    const ligaOriginais = document.querySelectorAll('.liga-check');
+    const ligaClones = clone.querySelectorAll('.liga-check');
+    ligaClones.forEach((el, i)=>{
+      el.disabled = true;
+      el.checked = ligaOriginais[i].checked;
     });
 
-    // remove os scripts originais e recria só o necessário: troca de abas + exportar (sem editar/importar)
+    // remove os scripts originais e recria só o necessário: troca de categoria
+    // (modal), troca de professor e exportar — tudo sem poder editar nada.
     clone.querySelectorAll('script').forEach(s=>s.remove());
     const script = document.createElement('script');
     script.textContent = `
@@ -2219,12 +2268,61 @@
           sections.forEach(s=>s.classList.remove('active'));
           btn.classList.add('active');
           document.getElementById(btn.dataset.target).classList.add('active');
+          atualizarBotaoCategorias(btn);
+          fecharModalCategorias();
         });
+      });
+
+      function atualizarBotaoCategorias(btn){
+        const label = document.getElementById('categoriaAtualLabel');
+        const badge = document.getElementById('categoriaAtualBadge');
+        if(label){
+          const nomeCompleto = btn.textContent.trim().replace(/\\s*\\d+\\s*$/, '').trim();
+          label.textContent = nomeCompleto.replace(/^🏐\\s*/, '');
+        }
+        if(badge){
+          const contBtn = btn.querySelector('.count-badge');
+          badge.textContent = contBtn ? contBtn.textContent : '';
+        }
+      }
+
+      function abrirModalCategorias(){
+        const modal = document.getElementById('modalCategorias');
+        if(modal) modal.style.display = 'flex';
+      }
+
+      function fecharModalCategorias(){
+        const modal = document.getElementById('modalCategorias');
+        if(modal) modal.style.display = 'none';
+      }
+
+      function filtrarProfessor(sectionId, professor, btnEl){
+        const section = document.getElementById(sectionId);
+        if(!section) return;
+        section.querySelectorAll('.teacher-filter .filter-btn').forEach(b=>b.classList.remove('active'));
+        btnEl.classList.add('active');
+        const grid = section.querySelector('.teacher-grid');
+        const cards = section.querySelectorAll('.teacher-card');
+        cards.forEach(card=>{
+          const ehRafa = card.classList.contains('rafa');
+          const ehManoel = card.classList.contains('manoel');
+          let mostrar = true;
+          if(professor === 'rafa') mostrar = ehRafa;
+          else if(professor === 'manoel') mostrar = ehManoel;
+          card.classList.toggle('hidden-by-filter', !mostrar);
+        });
+        const visiveis = Array.from(cards).filter(c=>!c.classList.contains('hidden-by-filter')).length;
+        if(grid) grid.classList.toggle('single-card', visiveis === 1);
+      }
+
+      document.querySelectorAll('.teacher-filter').forEach(barra=>{
+        const sectionId = barra.dataset.section;
+        const ativo = barra.querySelector('.filter-btn.active') || barra.querySelector('.filter-btn');
+        if(ativo) filtrarProfessor(sectionId, ativo.dataset.filter, ativo);
       });
 
       function nivelValue(el){
         if(!el) return '';
-        if(el.tagName === 'SELECT') return el.value;
         const t = el.textContent.trim();
         return t === '–' ? '' : t;
       }
@@ -2237,8 +2335,7 @@
             const professor = cardEl.querySelector('.teacher-header h3')?.textContent.trim() || '';
             cardEl.querySelectorAll('ul.student-list > li').forEach(li=>{
               const liClone = li.cloneNode(true);
-              const nivelClone = liClone.querySelector('.nivel-readonly');
-              if(nivelClone) nivelClone.remove();
+              liClone.querySelectorAll('.campo-readonly, .nivel-readonly').forEach(el=>el.remove());
               const aluno = liClone.textContent.replace(/\\s+/g,' ').trim();
               const nivelEl = li.querySelector('.nivel-readonly');
               const nivel = nivelValue(nivelEl);
