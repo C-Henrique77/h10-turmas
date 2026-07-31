@@ -60,6 +60,11 @@
     font-size:1.05em;
     opacity:0.9;
   }
+  header p#unidadeLabel{
+    font-size:0.85em;
+    opacity:0.75;
+    margin-top:2px;
+  }
   .tabs{
     max-width:1100px;
     margin:-50px auto 14px;
@@ -823,6 +828,78 @@
     background:#c0392b;
   }
 
+  /* ---- Configurações: unidade e professores ---- */
+  .config-section{
+    margin:0 0 20px;
+    padding-top:16px;
+    border-top:1px dashed #e0e4ee;
+  }
+  .config-section:first-of-type{
+    border-top:none;
+    padding-top:0;
+  }
+  .config-label{
+    display:block;
+    font-size:0.8em;
+    font-weight:700;
+    color:#8a8fa3;
+    text-transform:uppercase;
+    letter-spacing:0.03em;
+    margin:0 0 8px;
+  }
+  .config-row{
+    display:flex;
+    gap:6px;
+  }
+  .config-row input{
+    flex:1;
+    border:1px solid #d5dbeb;
+    border-radius:6px;
+    padding:7px 10px;
+    font-size:0.9em;
+  }
+  .config-row button{
+    background:var(--azul2);
+    color:white;
+    border:none;
+    border-radius:6px;
+    padding:0 14px;
+    font-weight:700;
+    cursor:pointer;
+    font-size:0.9em;
+    white-space:nowrap;
+  }
+  .professores-lista{
+    list-style:none;
+    margin:0 0 10px;
+    padding:0;
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+  }
+  .professor-item{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    background:#f4f6fb;
+    border-radius:8px;
+    padding:6px 10px;
+    font-size:0.9em;
+    font-weight:600;
+    color:#3a4363;
+  }
+  .professor-item.fixo{
+    color:#8a8fa3;
+    font-weight:700;
+  }
+  .professor-remove-btn{
+    background:none;
+    border:none;
+    cursor:pointer;
+    font-size:0.9em;
+    padding:2px 4px;
+  }
+
   /* ---- Ações por aluno: editar nome / excluir ---- */
   .student-actions{
     display:flex;
@@ -881,6 +958,7 @@
 <h1>H10 · Escola de Voleibol</h1>
 <div class="stripe"></div>
 <p>Turmas — 2º Semestre</p>
+<p id="unidadeLabel">📍 Unidade Brooklin · Arizona</p>
 </header>
 <div class="tabs">
 <button type="button" id="btnCategorias" class="categorias-btn" onclick="abrirModalCategorias()">
@@ -914,6 +992,21 @@
       <input id="syncCodeInput" type="text" placeholder="Cole aqui o código de sincronização"/>
       <button type="button" onclick="conectarComCodigo()">Conectar</button>
       <button type="button" class="cancelar" onclick="esconderFormularioConectar()">Cancelar</button>
+    </div>
+    <div class="config-section">
+      <label class="config-label">🏫 Unidade</label>
+      <div class="config-row">
+        <input id="unidadeInput" type="text" placeholder="Nome da unidade"/>
+        <button type="button" onclick="salvarUnidade()">Salvar</button>
+      </div>
+    </div>
+    <div class="config-section">
+      <label class="config-label">🧑‍🏫 Professores</label>
+      <ul class="professores-lista" id="professoresLista"></ul>
+      <div class="config-row">
+        <input id="novoProfessorInput" type="text" placeholder="Nome do novo professor"/>
+        <button type="button" onclick="adicionarProfessor()">+ Adicionar</button>
+      </div>
     </div>
     <button type="button" class="modal-close-btn" onclick="fecharModalConfiguracoes()">Fechar</button>
   </div>
@@ -1157,9 +1250,9 @@
 </div>
 </div>
 </section>
+</div>
 <div class="controls-panel">
 <button class="ctrl-btn" onclick="gerarVersaoCompartilhar()">📤 Gerar versão para compartilhar</button>
-</div>
 </div>
 <footer>H10 Escola de Voleibol — organização gerada a partir do caderno de chamada</footer>
 </div>
@@ -1370,11 +1463,7 @@
     const grid = section.querySelector('.teacher-grid');
     const cards = section.querySelectorAll('.teacher-card');
     cards.forEach(card=>{
-      const ehRafa = card.classList.contains('rafa');
-      const ehManoel = card.classList.contains('manoel');
-      let mostrar = true;
-      if(professor === 'rafa') mostrar = ehRafa;
-      else if(professor === 'manoel') mostrar = ehManoel;
+      const mostrar = card.classList.contains(professor);
       card.classList.toggle('hidden-by-filter', !mostrar);
     });
     const visiveis = Array.from(cards).filter(c=>!c.classList.contains('hidden-by-filter')).length;
@@ -1481,6 +1570,145 @@
   // Nomes editados de alunos originais: { id: "novo nome" }
   let alunosRenomeados = {};
 
+  // ======================================================================
+  // NOVO: unidade (identifica em qual endereço/unidade da H10 é esse
+  // caderno de chamada) e professores extras (além de Rafa e Manoel,
+  // cadastrados pelas Configurações — cada um vira um card em cada
+  // categoria, igual aos dois professores originais).
+  // ======================================================================
+  let unidadeAtual = 'Brooklin · Arizona';
+  let professoresExtras = [];
+  const PALETA_PROFESSORES_EXTRA = ['#5b3ea6', '#0f8a6a', '#c23b6b', '#1c7fbf', '#b5590c', '#2e8b7a'];
+
+  function corProfessorExtra(indice){
+    return PALETA_PROFESSORES_EXTRA[indice % PALETA_PROFESSORES_EXTRA.length];
+  }
+
+  function atualizarUnidadeNaTela(){
+    const label = document.getElementById('unidadeLabel');
+    if(label) label.textContent = '📍 Unidade ' + unidadeAtual;
+    const input = document.getElementById('unidadeInput');
+    if(input) input.value = unidadeAtual;
+  }
+
+  function salvarUnidade(){
+    const input = document.getElementById('unidadeInput');
+    const valor = (input && input.value || '').trim();
+    if(!valor) return;
+    unidadeAtual = valor;
+    atualizarUnidadeNaTela();
+    salvarLocalBackup();
+    salvarNoBancoDebounced();
+  }
+
+  function gerarIdProfessor(){
+    return 'prof' + Date.now().toString(36) + Math.floor(Math.random() * 1000);
+  }
+
+  // Cria (se ainda não existir) o card do professor extra em cada categoria,
+  // o botão de filtro correspondente e o botão no modal de transferência.
+  function renderizarProfessorExtra(prof, indice){
+    let estiloEl = document.getElementById('estiloProfessoresExtras');
+    if(!estiloEl){
+      estiloEl = document.createElement('style');
+      estiloEl.id = 'estiloProfessoresExtras';
+      document.head.appendChild(estiloEl);
+    }
+    const cor = corProfessorExtra(indice);
+    if(!estiloEl.textContent.includes('.teacher-card.' + prof.id + '{')){
+      estiloEl.textContent +=
+        '.teacher-card.' + prof.id + '{ border-top-color:' + cor + '; }' +
+        '.teacher-card.' + prof.id + ' .teacher-header{ background:' + cor + '; color:white; }';
+    }
+
+    document.querySelectorAll('.category-section').forEach(sectionEl=>{
+      const sectionId = sectionEl.id;
+      const filtro = sectionEl.querySelector('.teacher-filter');
+      if(filtro && !filtro.querySelector('[data-filter="' + prof.id + '"]')){
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'filter-btn';
+        btn.dataset.filter = prof.id;
+        btn.textContent = prof.nome;
+        btn.onclick = ()=>filtrarProfessor(sectionId, prof.id, btn);
+        filtro.appendChild(btn);
+      }
+      const grid = sectionEl.querySelector('.teacher-grid');
+      if(grid && !grid.querySelector('.teacher-card.' + prof.id)){
+        const card = document.createElement('div');
+        card.className = 'teacher-card ' + prof.id;
+        card.innerHTML =
+          '<div class="teacher-header"><h3>' + escapeHtml(prof.nome) + '</h3><span class="badge">0 alunos</span></div>' +
+          '<ul class="student-list"></ul>';
+        if(sectionId === 'master'){
+          card.querySelectorAll('.liga-field').forEach(el=>el.remove());
+        }
+        grid.appendChild(card);
+      }
+    });
+
+    const toggle = document.querySelector('.transfer-professor-toggle');
+    if(toggle && !toggle.querySelector('[data-professor="' + prof.id + '"]')){
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'filter-btn';
+      btn.dataset.professor = prof.id;
+      btn.textContent = prof.nome;
+      btn.onclick = ()=>selecionarProfessorTransferencia(prof.id, btn);
+      toggle.appendChild(btn);
+    }
+  }
+
+  function renderizarTodosProfessoresExtras(){
+    professoresExtras.forEach((prof, indice)=>renderizarProfessorExtra(prof, indice));
+    atualizarListaProfessoresConfig();
+  }
+
+  function atualizarListaProfessoresConfig(){
+    const ul = document.getElementById('professoresLista');
+    if(!ul) return;
+    let html = '<li class="professor-item fixo">Rafa</li><li class="professor-item fixo">Manoel</li>';
+    professoresExtras.forEach(p=>{
+      html += '<li class="professor-item">' + escapeHtml(p.nome) +
+        ' <button type="button" class="professor-remove-btn" onclick="removerProfessor(\'' + p.id + '\')" title="Remover professor">🗑️</button></li>';
+    });
+    ul.innerHTML = html;
+  }
+
+  function adicionarProfessor(){
+    const input = document.getElementById('novoProfessorInput');
+    const nome = (input && input.value || '').trim();
+    if(!nome) return;
+    const prof = { id: gerarIdProfessor(), nome };
+    professoresExtras.push(prof);
+    renderizarProfessorExtra(prof, professoresExtras.length - 1);
+    atualizarListaProfessoresConfig();
+    montarBotoesAdicionar();
+    montarBotoesAcao();
+    atualizarContadores();
+    input.value = '';
+    salvarLocalBackup();
+    salvarNoBancoDebounced();
+  }
+
+  function removerProfessor(id){
+    const temAlunos = document.querySelectorAll('.teacher-card.' + id + ' li.student-row').length > 0;
+    if(temAlunos){
+      window.alert('Esse professor ainda tem alunos em alguma turma. Transfira ou remova os alunos antes de excluir o professor.');
+      return;
+    }
+    const confirmou = window.confirm('Remover este professor de todas as categorias?');
+    if(!confirmou) return;
+    document.querySelectorAll('.teacher-card.' + id).forEach(el=>el.remove());
+    document.querySelectorAll('.teacher-filter [data-filter="' + id + '"]').forEach(el=>el.remove());
+    document.querySelectorAll('.transfer-professor-toggle [data-professor="' + id + '"]').forEach(el=>el.remove());
+    professoresExtras = professoresExtras.filter(p=>p.id !== id);
+    atualizarListaProfessoresConfig();
+    atualizarContadores();
+    salvarLocalBackup();
+    salvarNoBancoDebounced();
+  }
+
   function removerLigaDoCard(cardEl){
     if(cardEl.closest('.category-section')?.id === 'master'){
       cardEl.querySelectorAll('.liga-field').forEach(el=>el.remove());
@@ -1530,7 +1758,7 @@
     document.querySelectorAll('.teacher-card').forEach(cardEl=>{
       if(cardEl.querySelector('.add-student-btn')) return; // já montado
       const sectionId = cardEl.closest('.category-section').id;
-      const professor = cardEl.classList.contains('rafa') ? 'rafa' : 'manoel';
+      const professor = Array.from(cardEl.classList).find(c => c !== 'teacher-card' && c !== 'hidden-by-filter') || 'rafa';
 
       const btn = document.createElement('button');
       btn.type = 'button';
@@ -1683,7 +1911,7 @@
     const sectionAtual = li.closest('.category-section');
     const cardAtual = li.closest('.teacher-card');
     const categoriaAtual = sectionAtual ? sectionAtual.id : 'master';
-    professorSelecionadoTransferencia = (cardAtual && cardAtual.classList.contains('manoel')) ? 'manoel' : 'rafa';
+    professorSelecionadoTransferencia = (cardAtual ? Array.from(cardAtual.classList).find(c => c !== 'teacher-card' && c !== 'hidden-by-filter') : null) || 'rafa';
 
     const select = document.getElementById('transferCategoriaSelect');
     select.value = categoriaAtual;
@@ -1718,7 +1946,7 @@
     const sectionAtual = li.closest('.category-section');
     const cardAtual = li.closest('.teacher-card');
     const categoriaAtual = sectionAtual ? sectionAtual.id : null;
-    const professorAtual = (cardAtual && cardAtual.classList.contains('manoel')) ? 'manoel' : 'rafa';
+    const professorAtual = (cardAtual ? Array.from(cardAtual.classList).find(c => c !== 'teacher-card' && c !== 'hidden-by-filter') : null) || 'rafa';
 
     if(categoriaAtual === novaCategoria && professorAtual === novoProfessor){
       fecharModalTransferir();
@@ -1818,7 +2046,7 @@
   let syncId = null;
 
   function dadosPadrao(){
-    return { campos:{}, extras:[], removidos:[], renomeados:{}, atualizadoEm:'' };
+    return { campos:{}, extras:[], removidos:[], renomeados:{}, unidade:'', professoresExtras:[], atualizadoEm:'' };
   }
 
   function blobUrl(id){
@@ -1849,7 +2077,9 @@
         campos: coletarCampos(),
         extras: extrasAlunos,
         removidos: alunosRemovidos,
-        renomeados: alunosRenomeados
+        renomeados: alunosRenomeados,
+        unidade: unidadeAtual,
+        professoresExtras: professoresExtras
       }));
     }catch(e){}
   }
@@ -1902,6 +2132,14 @@
   }
 
   function aplicarDadosCarregados(dados){
+    // A unidade e os professores extras precisam existir na tela ANTES de
+    // restaurar os alunos extras, porque um aluno extra pode pertencer a um
+    // professor extra (o card dele só existe depois de renderizado aqui).
+    unidadeAtual = dados.unidade || 'Brooklin · Arizona';
+    professoresExtras = dados.professoresExtras || [];
+    renderizarTodosProfessoresExtras();
+    atualizarUnidadeNaTela();
+
     atribuirIdsOriginais();
     extrasAlunos = dados.extras || [];
     alunosRemovidos = dados.removidos || [];
@@ -1925,6 +2163,8 @@
       extras: extrasAlunos,
       removidos: alunosRemovidos,
       renomeados: alunosRenomeados,
+      unidade: unidadeAtual,
+      professoresExtras: professoresExtras,
       atualizadoEm: new Date().toISOString()
     };
     salvarLocalBackup();
@@ -2227,6 +2467,16 @@
     // colocar ali por cima faria ficar escondido atrás da curva amarela do
     // cabeçalho (mesmo problema já corrigido antes na barra de sincronização).
     const tabsDividerEl = clone.querySelector('.tabs-divider');
+    // Monta os botões do seletor de professor a partir dos professores que
+    // já existem na tela agora (Rafa, Manoel e qualquer professor extra
+    // cadastrado nas Configurações) — assim o arquivo compartilhado sempre
+    // reflete a lista atual, sem precisar mexer aqui de novo no futuro.
+    const primeiraBarraFiltro = clone.querySelector('.teacher-filter');
+    const botoesProfessor = primeiraBarraFiltro ? Array.from(primeiraBarraFiltro.querySelectorAll('.filter-btn')) : [];
+    const professorPickerBtnsHtml = botoesProfessor.map((b, i) =>
+      '<button type="button" class="filter-btn' + (i === 0 ? ' active' : '') + '" data-professor="' + b.dataset.filter + '">' + escapeHtml(b.textContent.trim()) + '</button>'
+    ).join('');
+    const professorInicial = botoesProfessor.length ? botoesProfessor[0].dataset.filter : 'rafa';
     if(tabsDividerEl){
       tabsDividerEl.insertAdjacentHTML('afterend',
         '<div class="view-switch">' +
@@ -2234,8 +2484,7 @@
           '<button type="button" class="view-switch-btn" data-view="professor">👤 Todas as turmas do professor</button>' +
         '</div>' +
         '<div class="professor-picker" id="professorPicker" style="display:none;">' +
-          '<button type="button" class="filter-btn active" data-professor="rafa">Rafa</button>' +
-          '<button type="button" class="filter-btn" data-professor="manoel">Manoel</button>' +
+          professorPickerBtnsHtml +
         '</div>'
       );
     }
@@ -2336,12 +2585,7 @@
         const grid = section.querySelector('.teacher-grid');
         const cards = section.querySelectorAll('.teacher-card');
         cards.forEach(card=>{
-          const ehRafa = card.classList.contains('rafa');
-          const ehManoel = card.classList.contains('manoel');
-          let mostrar = true;
-          if(professor === 'rafa') mostrar = ehRafa;
-          else if(professor === 'manoel') mostrar = ehManoel;
-          card.classList.toggle('hidden-by-filter', !mostrar);
+          card.classList.toggle('hidden-by-filter', !card.classList.contains(professor));
         });
         const visiveis = Array.from(cards).filter(c=>!c.classList.contains('hidden-by-filter')).length;
         if(grid) grid.classList.toggle('single-card', visiveis === 1);
@@ -2356,7 +2600,7 @@
       // ---- NOVO: alternar entre visão por categoria e visão "todas as
       // turmas do professor" (só existe nesta versão compartilhada) ----
       let modoVisualizacao = 'categoria';
-      let professorVisualizacao = 'rafa';
+      let professorVisualizacao = '${professorInicial}';
 
       function aplicarModoVisualizacao(){
         const sections = document.querySelectorAll('.category-section');
@@ -2387,10 +2631,7 @@
             const grid = s.querySelector('.teacher-grid');
             const cards = s.querySelectorAll('.teacher-card');
             cards.forEach(card=>{
-              const ehRafa = card.classList.contains('rafa');
-              const ehManoel = card.classList.contains('manoel');
-              const mostrar = professorVisualizacao === 'rafa' ? ehRafa : ehManoel;
-              card.classList.toggle('hidden-by-filter', !mostrar);
+              card.classList.toggle('hidden-by-filter', !card.classList.contains(professorVisualizacao));
             });
             const visiveis = Array.from(cards).filter(c=>!c.classList.contains('hidden-by-filter')).length;
             if(grid) grid.classList.toggle('single-card', visiveis === 1);
