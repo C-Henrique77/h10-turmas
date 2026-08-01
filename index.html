@@ -1076,6 +1076,7 @@
   <span id="adminBadge" class="admin-badge" style="display:none;">👁️ Somente leitura</span>
   <button id="btnInstalarApp" onclick="instalarApp()" style="display:none;">⬇️ Instalar app</button>
   <button type="button" onclick="abrirModalConfiguracoes()">⚙️ Configurações</button>
+  <button type="button" id="btnGerarCompartilhar" onclick="gerarVersaoCompartilhar()">📤 Gerar versão para compartilhar</button>
   <button onclick="fazerLogout()">Sair</button>
 </div>
 <h1>H10 · Escola de Voleibol</h1>
@@ -1476,6 +1477,8 @@
     if(label) label.style.display = ehAdmin ? 'none' : '';
     const select = document.getElementById('unidadeSeletorAdmin');
     if(select) select.style.display = ehAdmin ? 'inline-block' : 'none';
+    const btnCompartilhar = document.getElementById('btnGerarCompartilhar');
+    if(btnCompartilhar) btnCompartilhar.style.display = ehAdmin ? 'none' : '';
   }
 
   document.getElementById('loginSenha').addEventListener('keydown', function(ev){
@@ -1644,6 +1647,104 @@
     });
     const visiveis = Array.from(cards).filter(c=>!c.classList.contains('hidden-by-filter')).length;
     if(grid) grid.classList.toggle('single-card', visiveis === 1);
+  }
+
+  // ======================================================================
+  // Gera uma versão estática (somente leitura) desta unidade para compartilhar
+  // ======================================================================
+  function gerarVersaoCompartilhar(){
+    const clone = document.documentElement.cloneNode(true);
+
+    const loginClone = clone.querySelector('#loginScreen');
+    if(loginClone) loginClone.remove();
+    clone.querySelectorAll('script').forEach(s=>s.remove());
+
+    const bodyClone = clone.querySelector('body');
+    if(bodyClone) bodyClone.classList.add('modo-admin');
+
+    ['#btnInstalarApp', '#btnGerarCompartilhar', '#unidadeSeletorAdmin', '#modalConfiguracoes', '#avisoSemProfessor'].forEach(sel=>{
+      clone.querySelectorAll(sel).forEach(el=>el.remove());
+    });
+    const btnConfig = clone.querySelector('button[onclick="abrirModalConfiguracoes()"]');
+    if(btnConfig) btnConfig.remove();
+    const btnSair = clone.querySelector('button[onclick="fazerLogout()"]');
+    if(btnSair) btnSair.remove();
+
+    const badge = clone.querySelector('#adminBadge');
+    if(badge){
+      badge.textContent = '📤 Versão compartilhada — somente leitura';
+      badge.style.display = 'inline-block';
+    }
+
+    const script = document.createElement('script');
+    script.textContent = `
+      var abas = document.querySelectorAll('.tab-btn');
+      var secoes = document.querySelectorAll('.category-section');
+
+      function atualizarBotaoCategorias(btn){
+        var label = document.getElementById('categoriaAtualLabel');
+        var badge = document.getElementById('categoriaAtualBadge');
+        if(label){
+          var nomeCompleto = btn.textContent.trim().replace(/\\s*\\d+\\s*$/, '').trim();
+          label.textContent = nomeCompleto.replace(/^🏐\\s*/, '');
+        }
+        if(badge){
+          var contBtn = btn.querySelector('.count-badge');
+          badge.textContent = contBtn ? contBtn.textContent : '';
+        }
+      }
+
+      window.abrirModalCategorias = function(){
+        var modal = document.getElementById('modalCategorias');
+        if(modal) modal.style.display = 'flex';
+      };
+
+      window.fecharModalCategorias = function(){
+        var modal = document.getElementById('modalCategorias');
+        if(modal) modal.style.display = 'none';
+      };
+
+      abas.forEach(function(btn){
+        btn.addEventListener('click', function(){
+          abas.forEach(function(b){ b.classList.remove('active'); });
+          secoes.forEach(function(s){ s.classList.remove('active'); });
+          btn.classList.add('active');
+          var alvo = document.getElementById(btn.dataset.target);
+          if(alvo) alvo.classList.add('active');
+          atualizarBotaoCategorias(btn);
+          fecharModalCategorias();
+        });
+      });
+
+      atualizarBotaoCategorias(document.querySelector('.tab-btn.active') || abas[0]);
+
+      window.filtrarProfessor = function(sectionId, professor, btnEl){
+        var section = document.getElementById(sectionId);
+        if(!section) return;
+        section.querySelectorAll('.teacher-filter .filter-btn').forEach(function(b){ b.classList.remove('active'); });
+        btnEl.classList.add('active');
+        var grid = section.querySelector('.teacher-grid');
+        var cards = section.querySelectorAll('.teacher-card');
+        cards.forEach(function(card){
+          var mostrar = card.classList.contains(professor);
+          card.classList.toggle('hidden-by-filter', !mostrar);
+        });
+        var visiveis = Array.prototype.filter.call(cards, function(c){ return !c.classList.contains('hidden-by-filter'); }).length;
+        if(grid) grid.classList.toggle('single-card', visiveis === 1);
+      };
+    `;
+    clone.querySelector('body').appendChild(script);
+
+    const htmlFinal = '<!DOCTYPE html>\n' + clone.outerHTML;
+    const blob = new Blob([htmlFinal], {type:'text/html'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'h10_' + (unidadeAtivaId || 'turmas') + '_compartilhar.html';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   }
 
   // Aplica o filtro padrão (Rafa) em cada categoria assim que a página carrega
@@ -2013,9 +2114,14 @@
   function atualizarListaProfessoresConfig(){
     const ul = document.getElementById('professoresLista');
     if(!ul) return;
+    const base = unidadeAtivaId === UNIDADE_PADRAO_ID
+      ? [
+          { id: 'rafa', nome: nomeExibicaoProfessor('rafa') },
+          { id: 'manoel', nome: nomeExibicaoProfessor('manoel') }
+        ]
+      : [];
     const todos = [
-      { id: 'rafa', nome: nomeExibicaoProfessor('rafa') },
-      { id: 'manoel', nome: nomeExibicaoProfessor('manoel') },
+      ...base,
       ...professoresExtras
     ].filter(p => !professoresExcluidos.includes(p.id));
     ul.innerHTML = todos.map(p =>
