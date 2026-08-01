@@ -551,34 +551,6 @@
     .horario-add-row select, .horario-add-row input[type="time"]{ flex:1 1 100%; }
   }
 
-  /* Bloco estático de presença (só aparece na versão "Gerar para compartilhar") */
-  .turma-presenca-estatica{
-    margin:0 14px 14px;
-    padding:10px 12px;
-    background:#f4f6fb;
-    border-radius:10px;
-    border:1px solid #e3e7f2;
-  }
-  .turma-presenca-horarios{
-    font-size:0.85em;
-    font-weight:700;
-    color:var(--azul);
-    margin-bottom:8px;
-  }
-  .turma-presenca-tabela{
-    width:100%;
-    border-collapse:collapse;
-    font-size:0.8em;
-  }
-  .turma-presenca-tabela th,
-  .turma-presenca-tabela td{
-    text-align:left;
-    padding:4px 6px;
-    border-bottom:1px solid #e3e7f2;
-  }
-  .turma-presenca-tabela th:last-child,
-  .turma-presenca-tabela td:last-child{ text-align:right; white-space:nowrap; }
-
   .count-badge{
     background:var(--amarelo);
     color:var(--azul);
@@ -1313,7 +1285,7 @@
   <span id="adminBadge" class="admin-badge" style="display:none;">👁️ Somente leitura</span>
   <button id="btnInstalarApp" onclick="instalarApp()" style="display:none;">⬇️ Instalar app</button>
   <button type="button" onclick="abrirModalConfiguracoes()">⚙️ Configurações</button>
-  <button type="button" id="btnGerarCompartilhar" onclick="gerarVersaoCompartilhar()">📤 Gerar versão para compartilhar</button>
+  <button type="button" id="btnGerarCompartilhar" onclick="exportarPlanilhaUnidade()">📊 Exportar planilha</button>
   <button onclick="fazerLogout()">Sair</button>
 </div>
 <h1>H10 · Escola de Voleibol</h1>
@@ -1933,180 +1905,100 @@
     if(grid) grid.classList.toggle('single-card', visiveis === 1);
   }
 
-  // Monta o HTML (estático, somente leitura) do bloco de horários + resumo de
-  // presença de uma turma, usado só na versão para compartilhar. Retorna ''
-  // se a turma não tem nenhum horário nem nenhuma presença registrada ainda,
-  // pra não poluir o arquivo compartilhado sem necessidade.
-  function gerarBlocoPresencaEstaticoHTML(sectionId, professorId){
-    const key = chaveTurma(sectionId, professorId);
-    const horarios = horariosTurma[key] || [];
-    const alunos = alunosDaTurma(sectionId, professorId);
-    const temPresenca = alunos.some(a=>presencas[a.id] && Object.keys(presencas[a.id]).length > 0);
-    if(horarios.length === 0 && !temPresenca) return '';
+  // ======================================================================
+  // Exportar planilha (.xlsx) com os dados da unidade logada
+  // ======================================================================
 
-    let html = '<div class="turma-presenca-estatica">';
-    if(horarios.length > 0){
-      html += '<div class="turma-presenca-horarios">🗓️ ' +
-        horarios.map(h=>escapeHtml(h.dia) + ' ' + escapeHtml(h.hora)).join(', ') +
-        '</div>';
-    }
-    if(temPresenca){
-      html += '<table class="turma-presenca-tabela"><tr><th>Aluno</th><th>Presença</th></tr>';
-      alunos.forEach(a=>{
-        const registros = presencas[a.id] || {};
-        const datas = Object.keys(registros);
-        const total = datas.length;
-        const presentes = datas.filter(d=>registros[d] === true).length;
-        const pctTexto = total > 0 ? (Math.round((presentes / total) * 100) + '% (' + presentes + '/' + total + ')') : 'sem registros';
-        html += '<tr><td>' + escapeHtml(a.nome) + '</td><td>' + pctTexto + '</td></tr>';
-      });
-      html += '</table>';
-    }
-    html += '</div>';
-    return html;
+  // A biblioteca de planilhas (SheetJS) só é carregada quando o botão é
+  // clicado pela primeira vez, pra não deixar o app mais pesado pra quem
+  // nunca usa essa função.
+  let sheetJsCarregando = null;
+  function carregarSheetJS(){
+    if(window.XLSX) return Promise.resolve();
+    if(sheetJsCarregando) return sheetJsCarregando;
+    sheetJsCarregando = new Promise((resolve, reject)=>{
+      const script = document.createElement('script');
+      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+      script.onload = () => resolve();
+      script.onerror = () => { sheetJsCarregando = null; reject(new Error('Falha ao carregar a biblioteca de planilhas.')); };
+      document.head.appendChild(script);
+    });
+    return sheetJsCarregando;
   }
 
-  // ======================================================================
-  // Gera uma versão estática (somente leitura) desta unidade para compartilhar
-  // ======================================================================
-  function gerarVersaoCompartilhar(){
-    // Calcula o bloco de presença de cada turma ANTES de clonar (precisa do
-    // DOM e do estado reais da página, não da cópia).
-    const blocosPresenca = [];
-    document.querySelectorAll('.teacher-card').forEach(card=>{
-      const sectionEl = card.closest('.category-section');
-      if(!sectionEl) return;
-      const professorId = Array.from(card.classList).find(c=>c !== 'teacher-card' && c !== 'hidden-by-filter');
-      if(!professorId) return;
-      const html = gerarBlocoPresencaEstaticoHTML(sectionEl.id, professorId);
-      if(html) blocosPresenca.push({ sectionId: sectionEl.id, professorId, html });
-    });
+  // Nome "limpo" da categoria (aba), a partir do botão de categoria
+  // correspondente — ex.: "🏐 Master 23" -> "Master".
+  function nomeCategoriaExibicao(sectionId){
+    const btn = document.querySelector('.tab-btn[data-target="' + sectionId + '"]');
+    if(!btn) return sectionId;
+    return btn.textContent.trim().replace(/\s*\d+\s*$/, '').trim().replace(/^🏐\s*/, '');
+  }
 
-    const clone = document.documentElement.cloneNode(true);
+  // Percorre todas as categorias/turmas da unidade logada (a que está na
+  // tela agora) e monta as três tabelas que viram abas na planilha: alunos,
+  // horários e histórico de presença.
+  function coletarDadosExportacaoUnidade(){
+    const alunos = [['Categoria', 'Professor', 'Aluno', 'Número', 'Nível', 'Nascimento', 'Liga', 'Eventos']];
+    const horarios = [['Categoria', 'Professor', 'Dia', 'Horário']];
+    const presencasLista = [['Categoria', 'Professor', 'Aluno', 'Data', 'Presença']];
 
-    const loginClone = clone.querySelector('#loginScreen');
-    if(loginClone) loginClone.remove();
-    clone.querySelectorAll('script').forEach(s=>s.remove());
+    document.querySelectorAll('.category-section').forEach(sectionEl=>{
+      const categoria = nomeCategoriaExibicao(sectionEl.id);
+      sectionEl.querySelectorAll('.teacher-card').forEach(card=>{
+        const professorId = Array.from(card.classList).find(c=>c !== 'teacher-card' && c !== 'hidden-by-filter');
+        if(!professorId) return;
+        const professorNome = nomeTurmaExibicao(sectionEl.id, professorId);
+        const key = chaveTurma(sectionEl.id, professorId);
 
-    const bodyClone = clone.querySelector('body');
-    if(bodyClone) bodyClone.classList.add('modo-admin');
+        card.querySelectorAll('li.student-row').forEach(li=>{
+          const nome = (li.querySelector('.student-name') || {}).textContent || '';
+          const numero = (li.querySelector('.camisa-input') || {}).value || '';
+          const nivelSelect = li.querySelector('.nivel-select');
+          const nivel = nivelSelect ? nivelSelect.value : '';
+          const nasc = (li.querySelector('.nasc-input') || {}).value || '';
+          const ligaCheck = li.querySelector('.liga-check');
+          const liga = ligaCheck && ligaCheck.checked ? 'Sim' : 'Não';
+          const eventos = (li.querySelector('.eventos-input') || {}).value || '';
+          alunos.push([categoria, professorNome, nome.trim(), numero, nivel, nasc, liga, eventos]);
+        });
 
-    ['#btnInstalarApp', '#btnGerarCompartilhar', '#unidadeSeletorAdmin', '#modalConfiguracoes', '#avisoSemProfessor', '.turma-toolbar', '#modalHorarios', '#modalChamada', '#modalRelatorio'].forEach(sel=>{
-      clone.querySelectorAll(sel).forEach(el=>el.remove());
-    });
-    const btnConfig = clone.querySelector('button[onclick="abrirModalConfiguracoes()"]');
-    if(btnConfig) btnConfig.remove();
-    const btnSair = clone.querySelector('button[onclick="fazerLogout()"]');
-    if(btnSair) btnSair.remove();
+        (horariosTurma[key] || []).forEach(h=>{
+          horarios.push([categoria, professorNome, h.dia, h.hora]);
+        });
 
-    // Injeta o bloco estático de horários/presença logo após o cabeçalho de
-    // cada card correspondente (a toolbar interativa já foi removida acima).
-    blocosPresenca.forEach(({ sectionId, professorId, html })=>{
-      const sectionClone = clone.querySelector('#' + sectionId);
-      const cardClone = sectionClone && sectionClone.querySelector('.teacher-card.' + professorId);
-      const headerClone = cardClone && cardClone.querySelector('.teacher-header');
-      if(headerClone){
-        const wrapper = document.createElement('div');
-        wrapper.innerHTML = html;
-        headerClone.after(wrapper.firstElementChild);
-      }
-    });
-
-    const badge = clone.querySelector('#adminBadge');
-    if(badge){
-      badge.textContent = '📤 Versão compartilhada — somente leitura';
-      badge.style.display = 'inline-block';
-    }
-
-    const script = document.createElement('script');
-    script.textContent = `
-      var abas = document.querySelectorAll('.tab-btn');
-      var secoes = document.querySelectorAll('.category-section');
-
-      function atualizarBotaoCategorias(btn){
-        var label = document.getElementById('categoriaAtualLabel');
-        var badge = document.getElementById('categoriaAtualBadge');
-        if(label){
-          var nomeCompleto = btn.textContent.trim().replace(/\\s*\\d+\\s*$/, '').trim();
-          label.textContent = nomeCompleto.replace(/^🏐\\s*/, '');
-        }
-        if(badge){
-          var contBtn = btn.querySelector('.count-badge');
-          badge.textContent = contBtn ? contBtn.textContent : '';
-        }
-      }
-
-      window.abrirModalCategorias = function(){
-        var modal = document.getElementById('modalCategorias');
-        if(modal) modal.style.display = 'flex';
-      };
-
-      window.fecharModalCategorias = function(){
-        var modal = document.getElementById('modalCategorias');
-        if(modal) modal.style.display = 'none';
-      };
-
-      abas.forEach(function(btn){
-        btn.addEventListener('click', function(){
-          abas.forEach(function(b){ b.classList.remove('active'); });
-          secoes.forEach(function(s){ s.classList.remove('active'); });
-          btn.classList.add('active');
-          var alvo = document.getElementById(btn.dataset.target);
-          if(alvo) alvo.classList.add('active');
-          atualizarBotaoCategorias(btn);
-          fecharModalCategorias();
+        alunosDaTurma(sectionEl.id, professorId).forEach(a=>{
+          const registros = presencas[a.id] || {};
+          Object.keys(registros).sort().forEach(data=>{
+            presencasLista.push([categoria, professorNome, a.nome, data, registros[data] ? 'Presente' : 'Falta']);
+          });
         });
       });
+    });
 
-      atualizarBotaoCategorias(document.querySelector('.tab-btn.active') || abas[0]);
+    return { alunos, horarios, presencas: presencasLista };
+  }
 
-      window.filtrarProfessor = function(sectionId, professor, btnEl){
-        var section = document.getElementById(sectionId);
-        if(!section) return;
-        section.querySelectorAll('.teacher-filter .filter-btn').forEach(function(b){ b.classList.remove('active'); });
-        btnEl.classList.add('active');
-        var grid = section.querySelector('.teacher-grid');
-        var cards = section.querySelectorAll('.teacher-card');
-        cards.forEach(function(card){
-          var mostrar = card.classList.contains(professor);
-          card.classList.toggle('hidden-by-filter', !mostrar);
-        });
-        var visiveis = Array.prototype.filter.call(cards, function(c){ return !c.classList.contains('hidden-by-filter'); }).length;
-        if(grid) grid.classList.toggle('single-card', visiveis === 1);
-      };
-    `;
-    clone.querySelector('body').appendChild(script);
+  function exportarPlanilhaUnidade(){
+    const btn = document.getElementById('btnGerarCompartilhar');
+    const textoOriginal = btn ? btn.textContent : '';
+    if(btn){ btn.disabled = true; btn.textContent = '⏳ Gerando planilha...'; }
 
-    const htmlFinal = '<!DOCTYPE html>\n' + clone.outerHTML;
-    const blob = new Blob([htmlFinal], {type:'text/html'});
-    const url = URL.createObjectURL(blob);
-    const nomeArquivo = 'h10_' + (unidadeAtivaId || 'turmas') + '_compartilhar.html';
-    const ehCelular = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-
-    if(ehCelular){
-      // No celular, um link <a download> costuma abrir a folha de "enviar
-      // para..." do sistema em vez de mostrar a página — abrimos numa aba
-      // nova pra funcionar direto no navegador. De lá o usuário pode usar o
-      // próprio menu do navegador (⋮ ou compartilhar) pra salvar/enviar.
-      const novaAba = window.open(url, '_blank');
-      if(!novaAba){
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = nomeArquivo;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
+    carregarSheetJS().then(()=>{
+      const dados = coletarDadosExportacaoUnidade();
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(dados.alunos), 'Alunos');
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(dados.horarios), 'Horários');
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(dados.presencas), 'Presenças');
+      const nomeArquivo = 'h10_' + (unidadeAtivaId || 'turmas') + '.xlsx';
+      XLSX.writeFile(wb, nomeArquivo);
+      if(btn){ btn.disabled = false; btn.textContent = textoOriginal || '📊 Exportar planilha'; }
+    }).catch(err=>{
+      console.error(err);
+      if(btn){
+        btn.textContent = '❌ Falha — tente de novo';
+        setTimeout(()=>{ btn.disabled = false; btn.textContent = textoOriginal || '📊 Exportar planilha'; }, 3000);
       }
-      setTimeout(()=>URL.revokeObjectURL(url), 60000);
-    } else {
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = nomeArquivo;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    }
+    });
   }
 
   // Aplica o filtro padrão (Rafa) em cada categoria assim que a página carrega
