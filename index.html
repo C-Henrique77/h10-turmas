@@ -342,6 +342,215 @@
     background:#e0e6f5;
   }
 
+  /* ---- Horários de turma, chamada e relatório de presença ---- */
+  .modal-horarios{ max-width:420px; }
+  .modal-chamada{ max-width:480px; }
+  .modal-relatorio{ max-width:560px; }
+  .turma-toolbar{
+    display:flex;
+    gap:6px;
+    flex-wrap:wrap;
+    padding:10px 16px;
+    background:rgba(255,255,255,0.6);
+  }
+  .teacher-card.manoel .turma-toolbar{ background:rgba(255,255,255,0.35); }
+  .turma-btn{
+    background:white;
+    border:1px solid #d5dbeb;
+    color:#3a4363;
+    border-radius:20px;
+    padding:5px 12px;
+    font-size:0.8em;
+    font-weight:700;
+    cursor:pointer;
+    white-space:nowrap;
+  }
+  .turma-btn:hover{ background:#eef2fb; }
+  body.modo-admin .turma-horario-btn,
+  body.modo-admin .turma-chamada-btn{
+    display:none !important;
+  }
+  .horario-lista, .relatorio-resumo-lista{
+    list-style:none;
+    margin:0 0 10px;
+    padding:0;
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+    max-height:320px;
+    overflow-y:auto;
+  }
+  .horario-item{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    background:#f4f6fb;
+    border-radius:8px;
+    padding:8px 10px;
+    font-size:0.9em;
+    font-weight:600;
+    color:#3a4363;
+  }
+  .horario-remove-btn{
+    background:none;
+    border:none;
+    color:#c0392b;
+    cursor:pointer;
+    font-size:1em;
+    margin-left:auto;
+    padding:2px 4px;
+  }
+  .horario-vazio{
+    text-align:center;
+    color:#8a8fa3;
+    font-size:0.9em;
+    padding:10px 0;
+  }
+  .horario-add-row{
+    display:flex;
+    gap:6px;
+    margin-bottom:14px;
+  }
+  .horario-add-row select,
+  .horario-add-row input[type="time"]{
+    border:1px solid #d5dbeb;
+    border-radius:6px;
+    padding:7px 8px;
+    font-size:0.85em;
+    flex:1;
+    min-width:0;
+  }
+  .horario-add-row button{
+    background:var(--azul2);
+    color:white;
+    border:none;
+    border-radius:6px;
+    padding:0 12px;
+    font-weight:700;
+    cursor:pointer;
+    font-size:0.85em;
+    white-space:nowrap;
+  }
+  .chamada-data-row{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    justify-content:center;
+    margin-bottom:16px;
+  }
+  .chamada-data-row label{
+    font-weight:700;
+    color:var(--azul);
+    font-size:0.9em;
+  }
+  .chamada-data-row input[type="date"]{
+    border:2px solid var(--azul2);
+    border-radius:10px;
+    padding:7px 10px;
+    font-weight:700;
+    color:var(--azul);
+  }
+  .chamada-lista{
+    list-style:none;
+    margin:0 0 16px;
+    padding:0;
+    max-height:360px;
+    overflow-y:auto;
+  }
+  .chamada-item{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    padding:9px 6px;
+    border-bottom:1px solid #eef1f8;
+    font-size:0.9em;
+    font-weight:600;
+    color:#3a4363;
+  }
+  .chamada-toggle{
+    display:flex;
+    gap:4px;
+    flex-shrink:0;
+  }
+  .chamada-toggle button{
+    border:2px solid #d5dbeb;
+    background:white;
+    border-radius:20px;
+    padding:4px 12px;
+    font-size:0.8em;
+    font-weight:700;
+    cursor:pointer;
+    color:#8a8fa3;
+  }
+  .chamada-toggle button.presente.ativo{ background:#1e8f4e; border-color:#1e8f4e; color:white; }
+  .chamada-toggle button.falta.ativo{ background:#c0392b; border-color:#c0392b; color:white; }
+  body.modo-admin .chamada-toggle button{ pointer-events:none !important; opacity:0.7; }
+  .relatorio-tabs{
+    display:flex;
+    gap:8px;
+    margin-bottom:14px;
+    justify-content:center;
+  }
+  .relatorio-tab-btn{
+    border:2px solid var(--azul2);
+    background:white;
+    color:var(--azul);
+    border-radius:20px;
+    padding:6px 16px;
+    font-weight:700;
+    cursor:pointer;
+    font-size:0.85em;
+  }
+  .relatorio-tab-btn.active{ background:var(--azul2); color:white; }
+  .relatorio-resumo-item{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    background:#f4f6fb;
+    border-radius:8px;
+    padding:8px 10px;
+    font-size:0.9em;
+    font-weight:600;
+    color:#3a4363;
+  }
+  .relatorio-pct{ font-weight:800; white-space:nowrap; }
+  .relatorio-pct.alto{ color:#1e8f4e; }
+  .relatorio-pct.medio{ color:#a5670c; }
+  .relatorio-pct.baixo{ color:#c0392b; }
+  .relatorio-historico-wrap{
+    overflow-x:auto;
+    margin-bottom:10px;
+    max-height:360px;
+    overflow-y:auto;
+  }
+  table.relatorio-historico{
+    border-collapse:collapse;
+    width:100%;
+    font-size:0.78em;
+  }
+  table.relatorio-historico th,
+  table.relatorio-historico td{
+    border:1px solid #eef1f8;
+    padding:6px 8px;
+    text-align:center;
+    white-space:nowrap;
+  }
+  table.relatorio-historico th:first-child,
+  table.relatorio-historico td:first-child{
+    text-align:left;
+    position:sticky;
+    left:0;
+    background:white;
+  }
+  .presenca-sim{ color:#1e8f4e; font-weight:800; }
+  .presenca-nao{ color:#c0392b; font-weight:800; }
+  @media(max-width:700px){
+    .modal-horarios, .modal-chamada, .modal-relatorio{ max-width:94vw; }
+    .horario-add-row{ flex-wrap:wrap; }
+    .horario-add-row select, .horario-add-row input[type="time"]{ flex:1 1 100%; }
+  }
+
   .count-badge{
     background:var(--amarelo);
     color:var(--azul);
@@ -1140,6 +1349,53 @@
     <button type="button" class="modal-close-btn" onclick="fecharModalTransferir()">Cancelar</button>
   </div>
 </div>
+<div id="modalHorarios" class="modal-overlay" style="display:none;" onclick="if(event.target===this) fecharModalHorarios();">
+  <div class="modal-categorias modal-horarios">
+    <h3>🗓️ Horários — <span id="horarioTurmaNome"></span></h3>
+    <ul class="horario-lista" id="horarioLista"></ul>
+    <div class="horario-add-row">
+      <select id="horarioDiaInput">
+        <option value="Segunda">Segunda</option>
+        <option value="Terça">Terça</option>
+        <option value="Quarta">Quarta</option>
+        <option value="Quinta">Quinta</option>
+        <option value="Sexta">Sexta</option>
+        <option value="Sábado">Sábado</option>
+        <option value="Domingo">Domingo</option>
+      </select>
+      <input id="horarioHoraInput" type="time" value="18:00"/>
+      <button type="button" onclick="adicionarHorario()">+ Adicionar</button>
+    </div>
+    <button type="button" class="modal-close-btn" onclick="fecharModalHorarios()">Fechar</button>
+  </div>
+</div>
+<div id="modalChamada" class="modal-overlay" style="display:none;" onclick="if(event.target===this) fecharModalChamada();">
+  <div class="modal-categorias modal-chamada">
+    <h3>✅ Chamada — <span id="chamadaTurmaNome"></span></h3>
+    <div class="chamada-data-row">
+      <label for="chamadaDataInput">Data</label>
+      <input id="chamadaDataInput" onchange="carregarChamadaData()" type="date"/>
+    </div>
+    <ul class="chamada-lista" id="chamadaLista"></ul>
+    <button type="button" class="transfer-confirm-btn" onclick="fecharModalChamada()">Concluir</button>
+  </div>
+</div>
+<div id="modalRelatorio" class="modal-overlay" style="display:none;" onclick="if(event.target===this) fecharModalRelatorio();">
+  <div class="modal-categorias modal-relatorio">
+    <h3>📊 Relatório — <span id="relatorioTurmaNome"></span></h3>
+    <div class="relatorio-tabs">
+      <button type="button" class="relatorio-tab-btn active" data-tab="resumo" onclick="alternarAbaRelatorio('resumo')">Resumo por aluno</button>
+      <button type="button" class="relatorio-tab-btn" data-tab="historico" onclick="alternarAbaRelatorio('historico')">Histórico</button>
+    </div>
+    <div id="relatorioResumoWrap">
+      <ul class="relatorio-resumo-lista" id="relatorioResumoLista"></ul>
+    </div>
+    <div id="relatorioHistoricoWrap" class="relatorio-historico-wrap" style="display:none;">
+      <table class="relatorio-historico" id="relatorioHistoricoTabela"></table>
+    </div>
+    <button type="button" class="modal-close-btn" onclick="fecharModalRelatorio()">Fechar</button>
+  </div>
+</div>
 <div id="avisoSemProfessor" class="aviso-sem-professor" style="display:none;">
   <p>👋 Essa unidade ainda não tem nenhum professor cadastrado.</p>
   <button type="button" onclick="abrirConfiguracoesParaAdicionarProfessor()">+ Cadastrar primeiro professor</button>
@@ -1662,7 +1918,7 @@
     const bodyClone = clone.querySelector('body');
     if(bodyClone) bodyClone.classList.add('modo-admin');
 
-    ['#btnInstalarApp', '#btnGerarCompartilhar', '#unidadeSeletorAdmin', '#modalConfiguracoes', '#avisoSemProfessor'].forEach(sel=>{
+    ['#btnInstalarApp', '#btnGerarCompartilhar', '#unidadeSeletorAdmin', '#modalConfiguracoes', '#avisoSemProfessor', '.turma-toolbar', '#modalHorarios', '#modalChamada', '#modalRelatorio'].forEach(sel=>{
       clone.querySelectorAll(sel).forEach(el=>el.remove());
     });
     const btnConfig = clone.querySelector('button[onclick="abrirModalConfiguracoes()"]');
@@ -1869,6 +2125,14 @@
   let professoresExcluidos = []; // ids de professores originais (rafa/manoel) excluídos NESTA unidade
   const PALETA_PROFESSORES_EXTRA = ['#5b3ea6', '#0f8a6a', '#c23b6b', '#1c7fbf', '#b5590c', '#2e8b7a'];
 
+  // ---- Horários de turma e chamada/presença ----
+  let horariosTurma = {}; // { "sectionId-professorId": [{dia:'Segunda', hora:'18:00'}, ...] }
+  let presencas = {};     // { studentId: { 'YYYY-MM-DD': true|false } }
+  let turmaAtualHorarios = null;
+  let turmaAtualChamada = null;
+  let turmaAtualRelatorio = null;
+  const DIAS_SEMANA = ['Segunda','Terça','Quarta','Quinta','Sexta','Sábado','Domingo'];
+
   // "Foto" da tela original (com os alunos reais de verdade da unidade
   // padrão) tirada assim que a página carrega, antes de qualquer alteração.
   // É usada pra: (1) restaurar os cards da unidade padrão depois de trocar
@@ -1921,7 +2185,7 @@
   }
 
   function dadosPadraoUnidade(){
-    return { campos:{}, extras:[], removidos:[], renomeados:{}, professoresExtras:[], professoresRenomeados:{}, professoresExcluidos:[] };
+    return { campos:{}, extras:[], removidos:[], renomeados:{}, professoresExtras:[], professoresRenomeados:{}, professoresExcluidos:[], horariosTurma:{}, presencas:{} };
   }
 
   function capturarDadosUnidadeAtual(){
@@ -1932,7 +2196,9 @@
       renomeados: alunosRenomeados,
       professoresExtras: professoresExtras,
       professoresRenomeados: professoresRenomeados,
-      professoresExcluidos: professoresExcluidos
+      professoresExcluidos: professoresExcluidos,
+      horariosTurma: horariosTurma,
+      presencas: presencas
     };
   }
 
@@ -2014,6 +2280,247 @@
     professoresExtras.forEach((prof, indice)=>renderizarProfessorExtra(prof, indice));
   }
 
+  // ======================================================================
+  // Horários de turma, chamada e relatório de presença
+  // ======================================================================
+  function chaveTurma(sectionId, professorId){
+    return sectionId + '-' + professorId;
+  }
+
+  function turmaCardEl(sectionId, professorId){
+    const section = document.getElementById(sectionId);
+    return section ? section.querySelector('.teacher-card.' + professorId) : null;
+  }
+
+  function nomeTurmaExibicao(sectionId, professorId){
+    const card = turmaCardEl(sectionId, professorId);
+    const h3 = card && card.querySelector('.teacher-header h3');
+    return h3 ? h3.textContent.trim() : nomeExibicaoProfessor(professorId);
+  }
+
+  function alunosDaTurma(sectionId, professorId){
+    const card = turmaCardEl(sectionId, professorId);
+    if(!card) return [];
+    return Array.from(card.querySelectorAll('li.student-row')).map(li=>({
+      id: li.dataset.id,
+      nome: (li.querySelector('.student-name') || {}).textContent || ''
+    })).filter(a=>a.id);
+  }
+
+  // Adiciona a barrinha de botões (Horários / Chamada / Relatório) em cada
+  // teacher-card que ainda não tem uma — chamado sempre que os cards são
+  // (re)montados, então funciona tanto pra Rafa/Manoel quanto pra
+  // professores extras, em qualquer categoria.
+  function montarToolbarsTurma(){
+    document.querySelectorAll('.teacher-card').forEach(card=>{
+      if(card.querySelector('.turma-toolbar')) return;
+      const header = card.querySelector('.teacher-header');
+      const sectionEl = card.closest('.category-section');
+      if(!header || !sectionEl) return;
+      const professorId = Array.from(card.classList).find(c=>c !== 'teacher-card' && c !== 'hidden-by-filter');
+      if(!professorId) return;
+      const sectionId = sectionEl.id;
+      const toolbar = document.createElement('div');
+      toolbar.className = 'turma-toolbar';
+      toolbar.innerHTML =
+        '<button type="button" class="turma-btn turma-horario-btn" onclick="abrirModalHorarios(\'' + sectionId + '\',\'' + professorId + '\')">🗓️ Horários</button>' +
+        '<button type="button" class="turma-btn turma-chamada-btn" onclick="abrirModalChamada(\'' + sectionId + '\',\'' + professorId + '\')">✅ Chamada</button>' +
+        '<button type="button" class="turma-btn turma-relatorio-btn" onclick="abrirModalRelatorio(\'' + sectionId + '\',\'' + professorId + '\')">📊 Relatório</button>';
+      header.after(toolbar);
+    });
+  }
+
+  // ---- Horários ----
+  function abrirModalHorarios(sectionId, professorId){
+    turmaAtualHorarios = { sectionId, professorId };
+    document.getElementById('horarioTurmaNome').textContent = nomeTurmaExibicao(sectionId, professorId);
+    renderizarListaHorarios();
+    document.getElementById('modalHorarios').style.display = 'flex';
+  }
+
+  function fecharModalHorarios(){
+    document.getElementById('modalHorarios').style.display = 'none';
+    turmaAtualHorarios = null;
+  }
+
+  function renderizarListaHorarios(){
+    if(!turmaAtualHorarios) return;
+    const key = chaveTurma(turmaAtualHorarios.sectionId, turmaAtualHorarios.professorId);
+    const lista = horariosTurma[key] || [];
+    const ul = document.getElementById('horarioLista');
+    if(lista.length === 0){
+      ul.innerHTML = '<li class="horario-vazio">Nenhum horário cadastrado ainda.</li>';
+      return;
+    }
+    ul.innerHTML = lista.map((h, i)=>
+      '<li class="horario-item"><span>' + escapeHtml(h.dia) + ' às ' + escapeHtml(h.hora) + '</span>' +
+        '<button type="button" class="horario-remove-btn" onclick="removerHorario(' + i + ')" title="Remover">🗑️</button></li>'
+    ).join('');
+  }
+
+  function adicionarHorario(){
+    if(!turmaAtualHorarios) return;
+    const dia = document.getElementById('horarioDiaInput').value;
+    const hora = document.getElementById('horarioHoraInput').value;
+    if(!hora) return;
+    const key = chaveTurma(turmaAtualHorarios.sectionId, turmaAtualHorarios.professorId);
+    if(!horariosTurma[key]) horariosTurma[key] = [];
+    const jaExiste = horariosTurma[key].some(h=>h.dia === dia && h.hora === hora);
+    if(!jaExiste){
+      horariosTurma[key].push({ dia, hora });
+      horariosTurma[key].sort((a,b)=> DIAS_SEMANA.indexOf(a.dia) - DIAS_SEMANA.indexOf(b.dia) || a.hora.localeCompare(b.hora));
+    }
+    renderizarListaHorarios();
+    salvarLocalBackup();
+    salvarNoBancoDebounced();
+  }
+
+  function removerHorario(indice){
+    if(!turmaAtualHorarios) return;
+    const key = chaveTurma(turmaAtualHorarios.sectionId, turmaAtualHorarios.professorId);
+    if(!horariosTurma[key]) return;
+    horariosTurma[key].splice(indice, 1);
+    renderizarListaHorarios();
+    salvarLocalBackup();
+    salvarNoBancoDebounced();
+  }
+
+  // ---- Chamada (presença) ----
+  function hojeISO(){
+    const d = new Date();
+    const mes = String(d.getMonth() + 1).padStart(2, '0');
+    const dia = String(d.getDate()).padStart(2, '0');
+    return d.getFullYear() + '-' + mes + '-' + dia;
+  }
+
+  function abrirModalChamada(sectionId, professorId){
+    turmaAtualChamada = { sectionId, professorId };
+    document.getElementById('chamadaTurmaNome').textContent = nomeTurmaExibicao(sectionId, professorId);
+    document.getElementById('chamadaDataInput').value = hojeISO();
+    renderizarListaChamada();
+    document.getElementById('modalChamada').style.display = 'flex';
+  }
+
+  function fecharModalChamada(){
+    document.getElementById('modalChamada').style.display = 'none';
+    turmaAtualChamada = null;
+  }
+
+  function carregarChamadaData(){
+    renderizarListaChamada();
+  }
+
+  function renderizarListaChamada(){
+    if(!turmaAtualChamada) return;
+    const data = document.getElementById('chamadaDataInput').value;
+    const alunos = alunosDaTurma(turmaAtualChamada.sectionId, turmaAtualChamada.professorId);
+    const ul = document.getElementById('chamadaLista');
+    if(alunos.length === 0){
+      ul.innerHTML = '<li class="horario-vazio">Nenhum aluno nesta turma.</li>';
+      return;
+    }
+    ul.innerHTML = alunos.map(a=>{
+      const marcado = data && presencas[a.id] ? presencas[a.id][data] : undefined;
+      const presenteAtivo = marcado === true ? ' ativo' : '';
+      const faltaAtivo = marcado === false ? ' ativo' : '';
+      return '<li class="chamada-item"><span>' + escapeHtml(a.nome) + '</span>' +
+        '<span class="chamada-toggle">' +
+          '<button type="button" class="presente' + presenteAtivo + '" onclick="marcarPresenca(\'' + a.id + '\', true)">Presente</button>' +
+          '<button type="button" class="falta' + faltaAtivo + '" onclick="marcarPresenca(\'' + a.id + '\', false)">Falta</button>' +
+        '</span></li>';
+    }).join('');
+  }
+
+  function marcarPresenca(studentId, presente){
+    if(sessao.role !== 'unidade') return; // admin nunca grava nada
+    const data = document.getElementById('chamadaDataInput').value;
+    if(!data) return;
+    if(!presencas[studentId]) presencas[studentId] = {};
+    presencas[studentId][data] = presente;
+    renderizarListaChamada();
+    salvarLocalBackup();
+    salvarNoBancoDebounced();
+  }
+
+  // ---- Relatório ----
+  function abrirModalRelatorio(sectionId, professorId){
+    turmaAtualRelatorio = { sectionId, professorId };
+    document.getElementById('relatorioTurmaNome').textContent = nomeTurmaExibicao(sectionId, professorId);
+    alternarAbaRelatorio('resumo');
+    document.getElementById('modalRelatorio').style.display = 'flex';
+  }
+
+  function fecharModalRelatorio(){
+    document.getElementById('modalRelatorio').style.display = 'none';
+    turmaAtualRelatorio = null;
+  }
+
+  function alternarAbaRelatorio(aba){
+    document.querySelectorAll('.relatorio-tab-btn').forEach(b=>b.classList.toggle('active', b.dataset.tab === aba));
+    document.getElementById('relatorioResumoWrap').style.display = aba === 'resumo' ? 'block' : 'none';
+    document.getElementById('relatorioHistoricoWrap').style.display = aba === 'historico' ? 'block' : 'none';
+    if(aba === 'resumo') renderizarRelatorioResumo();
+    else renderizarRelatorioHistorico();
+  }
+
+  function todasDatasRegistradas(alunos){
+    const set = new Set();
+    alunos.forEach(a=>{
+      const registros = presencas[a.id] || {};
+      Object.keys(registros).forEach(data=>set.add(data));
+    });
+    return Array.from(set).sort();
+  }
+
+  function formatarDataCurta(iso){
+    const partes = iso.split('-');
+    if(partes.length !== 3) return iso;
+    return partes[2] + '/' + partes[1];
+  }
+
+  function renderizarRelatorioResumo(){
+    if(!turmaAtualRelatorio) return;
+    const alunos = alunosDaTurma(turmaAtualRelatorio.sectionId, turmaAtualRelatorio.professorId);
+    const ul = document.getElementById('relatorioResumoLista');
+    if(alunos.length === 0){
+      ul.innerHTML = '<li class="horario-vazio">Nenhum aluno nesta turma.</li>';
+      return;
+    }
+    ul.innerHTML = alunos.map(a=>{
+      const registros = presencas[a.id] || {};
+      const datas = Object.keys(registros);
+      const total = datas.length;
+      const presentes = datas.filter(d=>registros[d] === true).length;
+      const pct = total > 0 ? Math.round((presentes / total) * 100) : null;
+      const pctTexto = pct === null ? 'sem registros' : (pct + '% (' + presentes + '/' + total + ')');
+      const classePct = pct === null ? '' : (pct >= 80 ? 'alto' : (pct >= 50 ? 'medio' : 'baixo'));
+      return '<li class="relatorio-resumo-item"><span>' + escapeHtml(a.nome) + '</span>' +
+        '<span class="relatorio-pct ' + classePct + '">' + pctTexto + '</span></li>';
+    }).join('');
+  }
+
+  function renderizarRelatorioHistorico(){
+    if(!turmaAtualRelatorio) return;
+    const alunos = alunosDaTurma(turmaAtualRelatorio.sectionId, turmaAtualRelatorio.professorId);
+    const datas = todasDatasRegistradas(alunos);
+    const tabela = document.getElementById('relatorioHistoricoTabela');
+    if(alunos.length === 0 || datas.length === 0){
+      tabela.innerHTML = '<tr><td>Nenhum registro de chamada ainda.</td></tr>';
+      return;
+    }
+    let html = '<tr><th>Aluno</th>' + datas.map(d=>'<th>' + formatarDataCurta(d) + '</th>').join('') + '</tr>';
+    alunos.forEach(a=>{
+      const registros = presencas[a.id] || {};
+      html += '<tr><td>' + escapeHtml(a.nome) + '</td>' + datas.map(d=>{
+        const v = registros[d];
+        if(v === true) return '<td class="presenca-sim">✓</td>';
+        if(v === false) return '<td class="presenca-nao">✗</td>';
+        return '<td>–</td>';
+      }).join('') + '</tr>';
+    });
+    tabela.innerHTML = html;
+  }
+
   function aplicarRenomeacoesProfessores(){
     Object.keys(professoresRenomeados).forEach(id=>{
       aplicarNomeProfessorNaTela(id, professoresRenomeados[id]);
@@ -2074,6 +2581,8 @@
     professoresExtras = dadosUnidade.professoresExtras || [];
     professoresRenomeados = dadosUnidade.professoresRenomeados || {};
     professoresExcluidos = dadosUnidade.professoresExcluidos || [];
+    horariosTurma = dadosUnidade.horariosTurma || {};
+    presencas = dadosUnidade.presencas || {};
 
     renderizarTodosProfessoresExtras();
     aplicarRenomeacoesProfessores();
@@ -2090,6 +2599,7 @@
 
     montarBotoesAdicionar();
     montarBotoesAcao();
+    montarToolbarsTurma();
     atualizarContadores();
     aplicarFiltroInicial();
     atualizarListaProfessoresConfig();
@@ -2143,6 +2653,7 @@
     atualizarListaProfessoresConfig();
     montarBotoesAdicionar();
     montarBotoesAcao();
+    montarToolbarsTurma();
     atualizarContadores();
     aplicarFiltroInicial();
     atualizarAvisoSemProfessor();
@@ -2477,6 +2988,10 @@
 
     // Cria o aluno no novo destino com um novo id, preservando os dados
     const novoId = gerarIdNovoAluno();
+    if(idAntigo && presencas[idAntigo]){
+      presencas[novoId] = Object.assign({}, presencas[idAntigo]);
+      delete presencas[idAntigo];
+    }
     const novoUl = novoCard.querySelector('ul.student-list');
     const novoLi = criarLiAluno(novoId, nome);
     inserirOrdenado(novoUl, novoLi);
