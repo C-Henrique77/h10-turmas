@@ -551,6 +551,34 @@
     .horario-add-row select, .horario-add-row input[type="time"]{ flex:1 1 100%; }
   }
 
+  /* Bloco estático de presença (só aparece na versão "Gerar para compartilhar") */
+  .turma-presenca-estatica{
+    margin:0 14px 14px;
+    padding:10px 12px;
+    background:#f4f6fb;
+    border-radius:10px;
+    border:1px solid #e3e7f2;
+  }
+  .turma-presenca-horarios{
+    font-size:0.85em;
+    font-weight:700;
+    color:var(--azul);
+    margin-bottom:8px;
+  }
+  .turma-presenca-tabela{
+    width:100%;
+    border-collapse:collapse;
+    font-size:0.8em;
+  }
+  .turma-presenca-tabela th,
+  .turma-presenca-tabela td{
+    text-align:left;
+    padding:4px 6px;
+    border-bottom:1px solid #e3e7f2;
+  }
+  .turma-presenca-tabela th:last-child,
+  .turma-presenca-tabela td:last-child{ text-align:right; white-space:nowrap; }
+
   .count-badge{
     background:var(--amarelo);
     color:var(--azul);
@@ -1905,10 +1933,55 @@
     if(grid) grid.classList.toggle('single-card', visiveis === 1);
   }
 
+  // Monta o HTML (estático, somente leitura) do bloco de horários + resumo de
+  // presença de uma turma, usado só na versão para compartilhar. Retorna ''
+  // se a turma não tem nenhum horário nem nenhuma presença registrada ainda,
+  // pra não poluir o arquivo compartilhado sem necessidade.
+  function gerarBlocoPresencaEstaticoHTML(sectionId, professorId){
+    const key = chaveTurma(sectionId, professorId);
+    const horarios = horariosTurma[key] || [];
+    const alunos = alunosDaTurma(sectionId, professorId);
+    const temPresenca = alunos.some(a=>presencas[a.id] && Object.keys(presencas[a.id]).length > 0);
+    if(horarios.length === 0 && !temPresenca) return '';
+
+    let html = '<div class="turma-presenca-estatica">';
+    if(horarios.length > 0){
+      html += '<div class="turma-presenca-horarios">🗓️ ' +
+        horarios.map(h=>escapeHtml(h.dia) + ' ' + escapeHtml(h.hora)).join(', ') +
+        '</div>';
+    }
+    if(temPresenca){
+      html += '<table class="turma-presenca-tabela"><tr><th>Aluno</th><th>Presença</th></tr>';
+      alunos.forEach(a=>{
+        const registros = presencas[a.id] || {};
+        const datas = Object.keys(registros);
+        const total = datas.length;
+        const presentes = datas.filter(d=>registros[d] === true).length;
+        const pctTexto = total > 0 ? (Math.round((presentes / total) * 100) + '% (' + presentes + '/' + total + ')') : 'sem registros';
+        html += '<tr><td>' + escapeHtml(a.nome) + '</td><td>' + pctTexto + '</td></tr>';
+      });
+      html += '</table>';
+    }
+    html += '</div>';
+    return html;
+  }
+
   // ======================================================================
   // Gera uma versão estática (somente leitura) desta unidade para compartilhar
   // ======================================================================
   function gerarVersaoCompartilhar(){
+    // Calcula o bloco de presença de cada turma ANTES de clonar (precisa do
+    // DOM e do estado reais da página, não da cópia).
+    const blocosPresenca = [];
+    document.querySelectorAll('.teacher-card').forEach(card=>{
+      const sectionEl = card.closest('.category-section');
+      if(!sectionEl) return;
+      const professorId = Array.from(card.classList).find(c=>c !== 'teacher-card' && c !== 'hidden-by-filter');
+      if(!professorId) return;
+      const html = gerarBlocoPresencaEstaticoHTML(sectionEl.id, professorId);
+      if(html) blocosPresenca.push({ sectionId: sectionEl.id, professorId, html });
+    });
+
     const clone = document.documentElement.cloneNode(true);
 
     const loginClone = clone.querySelector('#loginScreen');
@@ -1925,6 +1998,19 @@
     if(btnConfig) btnConfig.remove();
     const btnSair = clone.querySelector('button[onclick="fazerLogout()"]');
     if(btnSair) btnSair.remove();
+
+    // Injeta o bloco estático de horários/presença logo após o cabeçalho de
+    // cada card correspondente (a toolbar interativa já foi removida acima).
+    blocosPresenca.forEach(({ sectionId, professorId, html })=>{
+      const sectionClone = clone.querySelector('#' + sectionId);
+      const cardClone = sectionClone && sectionClone.querySelector('.teacher-card.' + professorId);
+      const headerClone = cardClone && cardClone.querySelector('.teacher-header');
+      if(headerClone){
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = html;
+        headerClone.after(wrapper.firstElementChild);
+      }
+    });
 
     const badge = clone.querySelector('#adminBadge');
     if(badge){
@@ -1994,13 +2080,33 @@
     const htmlFinal = '<!DOCTYPE html>\n' + clone.outerHTML;
     const blob = new Blob([htmlFinal], {type:'text/html'});
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'h10_' + (unidadeAtivaId || 'turmas') + '_compartilhar.html';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    const nomeArquivo = 'h10_' + (unidadeAtivaId || 'turmas') + '_compartilhar.html';
+    const ehCelular = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+    if(ehCelular){
+      // No celular, um link <a download> costuma abrir a folha de "enviar
+      // para..." do sistema em vez de mostrar a página — abrimos numa aba
+      // nova pra funcionar direto no navegador. De lá o usuário pode usar o
+      // próprio menu do navegador (⋮ ou compartilhar) pra salvar/enviar.
+      const novaAba = window.open(url, '_blank');
+      if(!novaAba){
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = nomeArquivo;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      }
+      setTimeout(()=>URL.revokeObjectURL(url), 60000);
+    } else {
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = nomeArquivo;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
   }
 
   // Aplica o filtro padrão (Rafa) em cada categoria assim que a página carrega
