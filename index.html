@@ -3281,7 +3281,14 @@
         montarBotoesFoto();
         statusEl.textContent = '✅ Foto salva.';
         salvarLocalBackup();
-        salvarNoBancoDebounced();
+        // Foto é uma ação deliberada e pouco frequente (ao contrário de
+        // digitar, que dispara o debounce várias vezes por segundo) — salva
+        // no banco na hora em vez de esperar 900ms, pra reduzir ao mínimo a
+        // janela em que a foto ainda não chegou no banco compartilhado caso
+        // o app seja fechado logo em seguida.
+        clearTimeout(salvarTimeout);
+        salvarTimeout = null;
+        salvarNoBancoAgora();
       };
       img.onerror = function(){
         statusEl.textContent = '⚠️ Não foi possível abrir essa imagem. Tente outra.';
@@ -3301,7 +3308,9 @@
     montarBotoesFoto();
     document.getElementById('fotoStatusMsg').textContent = '';
     salvarLocalBackup();
-    salvarNoBancoDebounced();
+    clearTimeout(salvarTimeout);
+    salvarTimeout = null;
+    salvarNoBancoAgora();
   }
 
   // ======================================================================
@@ -3600,6 +3609,26 @@
     clearTimeout(salvarTimeout);
     salvarTimeout = setTimeout(salvarNoBancoAgora, 900);
   }
+
+  // Garante que uma alteração recém-feita (ex.: tirar uma foto e fechar o
+  // app/aba logo em seguida) não fique só "agendada" e se perca — se o app
+  // for pra segundo plano ou for fechado antes dos 900ms do debounce acima
+  // terminarem, salva na hora em vez de esperar. Isso é especialmente
+  // importante no PWA: quando o app é fechado (ex.: deslizado pra fora),
+  // o JavaScript para de rodar imediatamente e o setTimeout pendente nunca
+  // dispara, então a última alteração nunca chegava a ser salva no banco
+  // compartilhado (ficava só localmente naquele aparelho).
+  function flusharSalvamentoPendente(){
+    if(salvarTimeout){
+      clearTimeout(salvarTimeout);
+      salvarTimeout = null;
+      salvarNoBancoAgora();
+    }
+  }
+  document.addEventListener('visibilitychange', function(){
+    if(document.visibilityState === 'hidden') flusharSalvamentoPendente();
+  });
+  window.addEventListener('pagehide', flusharSalvamentoPendente);
 
   function salvarNoBancoAgora(){
     if(sessao.role !== 'unidade') return; // administrador nunca grava nada
