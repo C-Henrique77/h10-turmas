@@ -3477,7 +3477,10 @@
   function coletarCampos(){
     const campos = {};
     document.querySelectorAll('.nivel-select').forEach(el=>{ if(el.value) campos[el.id] = el.value; });
-    document.querySelectorAll('.nasc-input, .eventos-input').forEach(el=>{ if(el.value) campos[el.id] = el.value; });
+    // camisa-input (número da camisa) precisa estar aqui — sem isso o
+    // número fica só salvo no localStorage deste aparelho e nunca chega
+    // ao banco compartilhado da unidade (bug encontrado em 06/08/2026).
+    document.querySelectorAll('.nasc-input, .eventos-input, .camisa-input').forEach(el=>{ if(el.value) campos[el.id] = el.value; });
     document.querySelectorAll('.liga-check').forEach(el=>{ if(el.checked) campos[el.id] = '1'; });
     return campos;
   }
