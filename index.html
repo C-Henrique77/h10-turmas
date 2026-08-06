@@ -566,7 +566,7 @@
   .foto-acao-btn.remover{ border-color:#c0392b; color:#c0392b; }
   .foto-status-msg{ font-size:0.85em; color:#3a4363; min-height:1.2em; margin-bottom:8px; }
   @media(max-width:700px){
-    .modal-horarios, .modal-chamada, .modal-relatorio, .modal-foto{ max-width:94vw; }
+    .modal-horarios, .modal-chamada, .modal-relatorio, .modal-foto, .modal-detalhes-aluno{ max-width:94vw; }
     .horario-add-row{ flex-wrap:wrap; }
     .horario-add-row select, .horario-add-row input[type="time"]{ flex:1 1 100%; }
   }
@@ -746,12 +746,19 @@
     font-weight:400;
   }
 
-  .student-extra{
+  /* Escondido por padrão — só aparece quando "emprestado" pro modal de
+     detalhes do aluno (ver abrirModalDetalhesAluno). O seletor com ">"
+     garante que, assim que o próprio elemento é movido pra dentro do
+     modal, ele deixa de bater com essa regra e some a necessidade de
+     escondê-lo manualmente. */
+  li.student-row > .student-extra{
+    display:none;
+  }
+  #detalhesAlunoCorpo .student-extra{
     display:flex;
-    flex-wrap:wrap;
-    gap:10px 14px;
-    align-items:center;
-    padding-left:2px;
+    flex-direction:column;
+    align-items:stretch;
+    gap:14px;
   }
   .extra-field{
     display:flex;
@@ -761,6 +768,9 @@
     color:#8a8fa3;
     font-weight:600;
   }
+  #detalhesAlunoCorpo .extra-field{
+    font-size:0.85em;
+  }
   .nasc-input{
     width:132px;
     border:1px solid #d5dbeb;
@@ -769,6 +779,16 @@
     font-size:0.85em;
     color:#3a3f55;
     font-family:inherit;
+  }
+  /* "Nasc." quando promovido pra linha principal (ver
+     promoverNascimentoParaLinha) — mais compacto que a versão de dentro
+     do modal de detalhes. */
+  .nasc-inline{
+    font-size:0.72em;
+    flex-shrink:0;
+  }
+  .nasc-inline .nasc-input{
+    width:108px;
   }
   .liga-field{
     color:var(--azul);
@@ -798,6 +818,17 @@
   .nasc-input:focus, .eventos-input:focus{
     outline:none;
     border-color:var(--amarelo);
+  }
+  #detalhesAlunoCorpo .liga-field{
+    align-self:flex-start;
+  }
+  #detalhesAlunoCorpo .eventos-field{
+    flex-direction:column;
+    align-items:stretch;
+    min-width:0;
+  }
+  #detalhesAlunoCorpo .eventos-input{
+    min-width:0;
   }
 
   .sub-block-title{
@@ -856,6 +887,25 @@
       width:140px;
       height:32px;
       font-size:0.95em;
+    }
+    .student-main{
+      flex-wrap:wrap;
+      row-gap:8px;
+    }
+    .nasc-inline{
+      order:5;
+      flex-basis:100%;
+      margin-left:44px;
+      font-size:0.82em;
+    }
+    .nasc-inline .nasc-input{
+      width:160px;
+      height:32px;
+      font-size:0.95em;
+    }
+    .student-mais-btn{
+      font-size:1.25em;
+      padding:6px 12px;
     }
     .acao-btn{
       font-size:1.2em;
@@ -1272,10 +1322,22 @@
   }
 
   /* ---- Ações por aluno: editar nome / excluir ---- */
+  /* Escondido por padrão — só aparece quando "emprestado" pro modal de
+     detalhes do aluno (mesmo esquema do .student-extra acima). */
+  .student-main > .student-actions{
+    display:none;
+  }
   .student-actions{
     display:flex;
     gap:4px;
     flex-shrink:0;
+  }
+  #detalhesAlunoCorpo .student-actions{
+    flex-direction:column;
+    gap:8px;
+    margin-top:6px;
+    padding-top:14px;
+    border-top:1px dashed #e0e4ee;
   }
   .acao-btn{
     background:none;
@@ -1291,6 +1353,45 @@
   }
   .acao-btn.excluir:hover{
     background:#fbe4e1;
+  }
+  #detalhesAlunoCorpo .acao-btn{
+    text-align:left;
+    padding:10px 14px;
+    background:#f7f8fc;
+    border-radius:10px;
+    font-size:0.95em;
+    font-weight:600;
+    color:#3a3f55;
+  }
+  #detalhesAlunoCorpo .acao-btn:hover{
+    background:#eef2fb;
+  }
+  #detalhesAlunoCorpo .acao-btn.excluir{
+    color:#b3261e;
+  }
+  #detalhesAlunoCorpo .acao-btn.excluir:hover{
+    background:#fbe4e1;
+  }
+  .student-mais-btn{
+    background:#eef2fb;
+    border:none;
+    color:var(--azul);
+    cursor:pointer;
+    font-weight:700;
+    font-size:1.05em;
+    padding:4px 10px;
+    border-radius:14px;
+    line-height:1;
+    flex-shrink:0;
+  }
+  .student-mais-btn:hover{
+    background:#dfe6f7;
+  }
+  .modal-detalhes-aluno{
+    max-width:380px;
+  }
+  .modal-detalhes-aluno h3{
+    word-break:break-word;
   }
   .nome-edit-input{
     font-size:0.98em;
@@ -1453,6 +1554,13 @@
     <input type="file" id="fotoInputCamera" accept="image/*" capture="environment" style="display:none;" onchange="processarFotoSelecionada(this.files[0])"/>
     <input type="file" id="fotoInputGaleria" accept="image/*" style="display:none;" onchange="processarFotoSelecionada(this.files[0])"/>
     <button type="button" class="modal-close-btn" onclick="fecharModalFoto()">Fechar</button>
+  </div>
+</div>
+<div id="modalDetalhesAluno" class="modal-overlay" style="display:none;" onclick="if(event.target===this) fecharModalDetalhesAluno();">
+  <div class="modal-categorias modal-detalhes-aluno">
+    <h3>👤 <span id="detalhesAlunoNome"></span></h3>
+    <div id="detalhesAlunoCorpo"></div>
+    <button type="button" class="modal-close-btn" onclick="fecharModalDetalhesAluno()">Fechar</button>
   </div>
 </div>
 <div id="avisoSemProfessor" class="aviso-sem-professor" style="display:none;">
@@ -2673,6 +2781,8 @@
 
     montarBotoesAdicionar();
     montarBotoesAcao();
+    promoverNascimentoParaLinha();
+    montarBotoesMais();
     montarBotoesFoto();
     montarToolbarsTurma();
     atualizarContadores();
@@ -2728,6 +2838,8 @@
     atualizarListaProfessoresConfig();
     montarBotoesAdicionar();
     montarBotoesAcao();
+    promoverNascimentoParaLinha();
+    montarBotoesMais();
     montarBotoesFoto();
     montarToolbarsTurma();
     atualizarContadores();
@@ -2811,6 +2923,8 @@
       li.querySelectorAll('.liga-field').forEach(el=>el.remove());
     }
     montarBotoesAcao();
+    promoverNascimentoParaLinha();
+    montarBotoesMais();
     montarBotoesFoto();
     extrasAlunos.push({ uid, sectionId, professor, nome });
     salvarLocalBackup();
@@ -2904,14 +3018,98 @@
       const acoes = document.createElement('div');
       acoes.className = 'student-actions';
       acoes.innerHTML =
-        '<button type="button" class="acao-btn transferir" title="Transferir de categoria/professor">🔄</button>' +
-        '<button type="button" class="acao-btn editar" title="Editar nome">✏️</button>' +
-        '<button type="button" class="acao-btn excluir" title="Excluir aluno">🗑️</button>';
-      acoes.querySelector('.transferir').onclick = ()=>abrirModalTransferir(li);
-      acoes.querySelector('.editar').onclick = ()=>editarNomeAluno(li);
+        '<button type="button" class="acao-btn transferir" title="Transferir de categoria/professor">🔄 Transferir</button>' +
+        '<button type="button" class="acao-btn editar" title="Editar nome">✏️ Editar nome</button>' +
+        '<button type="button" class="acao-btn excluir" title="Excluir aluno">🗑️ Excluir</button>';
+      // Esses botões vivem escondidos dentro da própria linha (CSS) até
+      // serem "emprestados" pro modal de detalhes — por isso, ao usá-los,
+      // primeiro fechamos esse modal (devolvendo os campos pro lugar) antes
+      // de abrir a próxima tela, senão o usuário edita/transfere sem ver o
+      // que está fazendo (o modal de detalhes ficaria por cima).
+      acoes.querySelector('.transferir').onclick = ()=>{ fecharModalDetalhesAluno(); abrirModalTransferir(li); };
+      acoes.querySelector('.editar').onclick = ()=>{ fecharModalDetalhesAluno(); editarNomeAluno(li); };
       acoes.querySelector('.excluir').onclick = ()=>excluirAluno(li);
       main.appendChild(acoes);
     });
+  }
+
+  // ======================================================================
+  // NOVO: linha do aluno simplificada (nome, número, nascimento, nível e
+  // foto) + botão "⋯" que abre um modal com o resto (liga, eventos,
+  // transferir/editar/excluir) — pra não poluir a lista com muito campo
+  // junto. Os campos continuam sendo os MESMOS elementos (mesmos ids),
+  // só são reposicionados/emprestados — nada de duplicar estado.
+  // ======================================================================
+
+  // Idempotente: promove o campo "Nasc." de dentro do .student-extra pra
+  // dentro do .student-main (linha principal), uma única vez por aluno.
+  function promoverNascimentoParaLinha(){
+    document.querySelectorAll('li.student-row').forEach(li=>{
+      const main = li.querySelector('.student-main');
+      if(!main) return;
+      if(main.querySelector('.nasc-input')) return; // já promovido
+      const extra = li.querySelector('.student-extra');
+      if(!extra) return;
+      const nascInput = extra.querySelector('.nasc-input');
+      if(!nascInput) return;
+      const nascLabel = nascInput.closest('.extra-field');
+      if(!nascLabel) return;
+      nascLabel.classList.add('nasc-inline');
+      const nivelSelect = main.querySelector('.nivel-select');
+      if(nivelSelect){
+        main.insertBefore(nascLabel, nivelSelect);
+      }else{
+        main.appendChild(nascLabel);
+      }
+    });
+  }
+
+  // Idempotente: adiciona o botão "⋯" (mais informações) em cada linha.
+  function montarBotoesMais(){
+    document.querySelectorAll('li.student-row').forEach(li=>{
+      const main = li.querySelector('.student-main');
+      if(!main) return;
+      if(main.querySelector('.student-mais-btn')) return; // já montado
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'student-mais-btn';
+      btn.title = 'Mais informações do aluno';
+      btn.textContent = '⋯';
+      btn.onclick = ()=>abrirModalDetalhesAluno(li);
+      main.appendChild(btn);
+    });
+  }
+
+  // Aluno cujo .student-extra/.student-actions estão emprestados pro modal
+  // de detalhes aberto no momento (null se o modal estiver fechado).
+  let detalhesAlunoAtualLi = null;
+
+  function abrirModalDetalhesAluno(li){
+    fecharModalDetalhesAluno(); // garante que nenhum outro aluno ficou "emprestado"
+    detalhesAlunoAtualLi = li;
+    const nome = li.querySelector('.student-name')?.textContent.trim() || '';
+    document.getElementById('detalhesAlunoNome').textContent = nome;
+    const corpo = document.getElementById('detalhesAlunoCorpo');
+    const extra = li.querySelector('.student-extra');
+    const acoes = li.querySelector('.student-actions');
+    if(extra) corpo.appendChild(extra);
+    if(acoes) corpo.appendChild(acoes);
+    document.getElementById('modalDetalhesAluno').style.display = 'flex';
+  }
+
+  function fecharModalDetalhesAluno(){
+    const modal = document.getElementById('modalDetalhesAluno');
+    if(modal) modal.style.display = 'none';
+    if(detalhesAlunoAtualLi){
+      const li = detalhesAlunoAtualLi;
+      const corpo = document.getElementById('detalhesAlunoCorpo');
+      const extra = corpo.querySelector('.student-extra');
+      const acoes = corpo.querySelector('.student-actions');
+      const main = li.querySelector('.student-main');
+      if(extra) li.appendChild(extra); // volta como filho direto do li (posição original)
+      if(acoes && main) main.appendChild(acoes); // volta como filho do student-main
+      detalhesAlunoAtualLi = null;
+    }
   }
 
   function editarNomeAluno(li){
@@ -2972,6 +3170,7 @@
       delete fotosAlunos[id];
     }
     li.remove();
+    fecharModalDetalhesAluno(); // o aluno não existe mais — fecha o modal de detalhes
     salvarLocalBackup();
     atualizarContadores();
     salvarNoBancoDebounced();
@@ -2999,14 +3198,16 @@
       }
       const id = li.dataset.id;
       const temFoto = !!(id && fotosAlunos[id]);
-      foto.title = temFoto ? 'Ver/trocar foto' : (pwa ? 'Adicionar foto' : 'Foto do aluno');
-      foto.classList.toggle('clicavel', pwa && sessao.role === 'unidade');
+      const podeEditar = pwa && sessao.role === 'unidade';
+      foto.title = podeEditar ? (temFoto ? 'Ver/trocar foto' : 'Adicionar foto') : 'Foto do aluno';
+      foto.classList.toggle('clicavel', podeEditar);
       foto.classList.toggle('sem-foto', !temFoto);
-      foto.onclick = (pwa && sessao.role === 'unidade') ? (()=>abrirModalFoto(id)) : null;
+      foto.onclick = podeEditar ? (()=>abrirModalFoto(id)) : null;
       foto.style.backgroundImage = temFoto ? ('url("' + fotosAlunos[id] + '")') : '';
-      // Sem PWA e sem foto ainda: não tem nada útil pra mostrar nem fazer
-      // ali (não dá pra adicionar foto pelo navegador comum), então some.
-      foto.style.display = (!pwa && !temFoto) ? 'none' : 'flex';
+      // A foto (ou o espaço reservado pra ela) aparece tanto no app
+      // instalado quanto no navegador comum — só quem está com o app
+      // instalado consegue tirar/trocar a foto (ver "clicavel" acima).
+      foto.style.display = 'flex';
     });
   }
 
@@ -3110,6 +3311,9 @@
   let professorSelecionadoTransferencia = 'rafa';
 
   function abrirModalTransferir(li){
+    // Garante que .student-extra (liga/eventos) já esteja de volta dentro
+    // do li antes de ler os campos na hora de confirmar a transferência.
+    fecharModalDetalhesAluno();
     liEmTransferencia = li;
     const nome = li.querySelector('.student-name')?.textContent.trim() || 'este aluno';
     document.getElementById('transferAlunoNome').textContent = nome;
@@ -3207,6 +3411,8 @@
       novoLi.querySelectorAll('.liga-field').forEach(el=>el.remove());
     }
     montarBotoesAcao();
+    promoverNascimentoParaLinha();
+    montarBotoesMais();
     montarBotoesFoto();
 
     const novoNivelEl = novoLi.querySelector('.nivel-select');
@@ -3485,6 +3691,8 @@
     ordenarListas();
     montarBotoesAdicionar();
     montarBotoesAcao();
+    promoverNascimentoParaLinha();
+    montarBotoesMais();
     montarBotoesFoto();
     atualizarContadores();
     aplicarFiltroInicial();
