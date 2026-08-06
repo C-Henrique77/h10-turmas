@@ -545,8 +545,28 @@
   }
   .presenca-sim{ color:#1e8f4e; font-weight:800; }
   .presenca-nao{ color:#c0392b; font-weight:800; }
+
+  .modal-foto{ max-width:360px; text-align:center; }
+  .foto-preview-wrap{ margin:10px 0; display:flex; justify-content:center; }
+  .foto-preview{
+    width:160px; height:160px; border-radius:50%; object-fit:cover;
+    border:3px solid #e3e7f2;
+  }
+  .foto-preview-vazio{
+    width:160px; height:160px; border-radius:50%; background:#eef1f8;
+    display:flex; align-items:center; justify-content:center;
+    color:#8a93ad; font-size:0.85em; border:3px dashed #e3e7f2; text-align:center;
+    padding:0 12px;
+  }
+  .foto-acoes{ display:flex; flex-direction:column; gap:8px; margin:10px 0; }
+  .foto-acao-btn{
+    border:2px solid var(--azul2); background:white; color:var(--azul);
+    border-radius:20px; padding:10px 16px; font-weight:700; cursor:pointer; font-size:0.9em;
+  }
+  .foto-acao-btn.remover{ border-color:#c0392b; color:#c0392b; }
+  .foto-status-msg{ font-size:0.85em; color:#3a4363; min-height:1.2em; margin-bottom:8px; }
   @media(max-width:700px){
-    .modal-horarios, .modal-chamada, .modal-relatorio{ max-width:94vw; }
+    .modal-horarios, .modal-chamada, .modal-relatorio, .modal-foto{ max-width:94vw; }
     .horario-add-row{ flex-wrap:wrap; }
     .horario-add-row select, .horario-add-row input[type="time"]{ flex:1 1 100%; }
   }
@@ -673,6 +693,27 @@
     align-items:center;
     gap:10px;
   }
+  .student-foto{
+    width:34px;
+    height:34px;
+    border-radius:50%;
+    flex-shrink:0;
+    border:2px solid #e3e7f2;
+    background-color:#eef1f8;
+    background-position:center;
+    background-size:cover;
+    background-repeat:no-repeat;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:0;
+    font-size:0.95em;
+    cursor:default;
+  }
+  .student-foto.clicavel{ cursor:pointer; }
+  .student-foto.clicavel:hover{ border-color:var(--azul2); }
+  .student-foto.sem-foto::before{ content:'👤'; opacity:0.4; }
+  .student-foto.sem-foto.clicavel::before{ content:'📷'; opacity:0.65; }
   .student-name-wrap{
     display:flex;
     align-items:center;
@@ -1394,6 +1435,24 @@
       <table class="relatorio-historico" id="relatorioHistoricoTabela"></table>
     </div>
     <button type="button" class="modal-close-btn" onclick="fecharModalRelatorio()">Fechar</button>
+  </div>
+</div>
+<div id="modalFoto" class="modal-overlay" style="display:none;" onclick="if(event.target===this) fecharModalFoto();">
+  <div class="modal-categorias modal-foto">
+    <h3>📷 Foto — <span id="fotoAlunoNome"></span></h3>
+    <div class="foto-preview-wrap">
+      <img id="fotoPreviewImg" class="foto-preview" style="display:none;" alt="Foto do aluno"/>
+      <div id="fotoPreviewVazio" class="foto-preview-vazio">Sem foto ainda</div>
+    </div>
+    <div class="foto-acoes">
+      <button type="button" class="foto-acao-btn" onclick="document.getElementById('fotoInputCamera').click()">📷 Tirar foto agora</button>
+      <button type="button" class="foto-acao-btn" onclick="document.getElementById('fotoInputGaleria').click()">🖼️ Escolher da galeria</button>
+      <button type="button" class="foto-acao-btn remover" id="fotoRemoverBtn" onclick="removerFotoAluno()" style="display:none;">🗑️ Remover foto</button>
+    </div>
+    <div id="fotoStatusMsg" class="foto-status-msg"></div>
+    <input type="file" id="fotoInputCamera" accept="image/*" capture="environment" style="display:none;" onchange="processarFotoSelecionada(this.files[0])"/>
+    <input type="file" id="fotoInputGaleria" accept="image/*" style="display:none;" onchange="processarFotoSelecionada(this.files[0])"/>
+    <button type="button" class="modal-close-btn" onclick="fecharModalFoto()">Fechar</button>
   </div>
 </div>
 <div id="avisoSemProfessor" class="aviso-sem-professor" style="display:none;">
@@ -2131,6 +2190,21 @@
   let turmaAtualRelatorio = null;
   const DIAS_SEMANA = ['Segunda','Terça','Quarta','Quinta','Sexta','Sábado','Domingo'];
 
+  // ---- Foto do aluno (exclusivo do app instalado — PWA) ----
+  let fotosAlunos = {};   // { studentId: 'data:image/jpeg;base64,...' } — comprimida antes de guardar
+  let alunoAtualFoto = null;
+  const FOTO_MAX_LADO = 240;           // px — maior lado da miniatura depois de redimensionada
+  const FOTO_QUALIDADE = 0.6;          // qualidade do JPEG (0 a 1)
+  const FOTO_TAMANHO_MAX_B64 = 120000; // limite de segurança (~90KB) pra não estourar o banco
+
+  // Detecta se o site está rodando como app instalado (PWA), não como aba
+  // normal do navegador — a foto do aluno só pode ser adicionada/trocada
+  // nesse modo (tirar foto pela câmera exige isso na prática, e mantém a
+  // ação de edição fora do navegador comum, como pedido).
+  function ehPWAInstalado(){
+    return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+  }
+
   // "Foto" da tela original (com os alunos reais de verdade da unidade
   // padrão) tirada assim que a página carrega, antes de qualquer alteração.
   // É usada pra: (1) restaurar os cards da unidade padrão depois de trocar
@@ -2183,7 +2257,7 @@
   }
 
   function dadosPadraoUnidade(){
-    return { campos:{}, extras:[], removidos:[], renomeados:{}, professoresExtras:[], professoresRenomeados:{}, professoresExcluidos:[], horariosTurma:{}, presencas:{} };
+    return { campos:{}, extras:[], removidos:[], renomeados:{}, professoresExtras:[], professoresRenomeados:{}, professoresExcluidos:[], horariosTurma:{}, presencas:{}, fotosAlunos:{} };
   }
 
   function capturarDadosUnidadeAtual(){
@@ -2196,7 +2270,8 @@
       professoresRenomeados: professoresRenomeados,
       professoresExcluidos: professoresExcluidos,
       horariosTurma: horariosTurma,
-      presencas: presencas
+      presencas: presencas,
+      fotosAlunos: fotosAlunos
     };
   }
 
@@ -2581,6 +2656,7 @@
     professoresExcluidos = dadosUnidade.professoresExcluidos || [];
     horariosTurma = dadosUnidade.horariosTurma || {};
     presencas = dadosUnidade.presencas || {};
+    fotosAlunos = dadosUnidade.fotosAlunos || {};
 
     renderizarTodosProfessoresExtras();
     aplicarRenomeacoesProfessores();
@@ -2597,6 +2673,7 @@
 
     montarBotoesAdicionar();
     montarBotoesAcao();
+    montarBotoesFoto();
     montarToolbarsTurma();
     atualizarContadores();
     aplicarFiltroInicial();
@@ -2651,6 +2728,7 @@
     atualizarListaProfessoresConfig();
     montarBotoesAdicionar();
     montarBotoesAcao();
+    montarBotoesFoto();
     montarToolbarsTurma();
     atualizarContadores();
     aplicarFiltroInicial();
@@ -2733,6 +2811,7 @@
       li.querySelectorAll('.liga-field').forEach(el=>el.remove());
     }
     montarBotoesAcao();
+    montarBotoesFoto();
     extrasAlunos.push({ uid, sectionId, professor, nome });
     salvarLocalBackup();
     salvarNoBancoDebounced();
@@ -2890,10 +2969,137 @@
     if(id){
       extrasAlunos = extrasAlunos.filter(e=>e.uid !== id);
       delete alunosRenomeados[id];
+      delete fotosAlunos[id];
     }
     li.remove();
     salvarLocalBackup();
     atualizarContadores();
+    salvarNoBancoDebounced();
+  }
+
+  // ======================================================================
+  // Foto do aluno (exclusivo do app instalado — PWA)
+  // ======================================================================
+
+  // Injeta (de forma idempotente) o avatar/botão de foto em cada linha de
+  // aluno — mesmo padrão do montarBotoesAcao/montarToolbarsTurma. Roda de
+  // novo sempre que algo muda (foto salva, removida, aluno transferido
+  // etc.) pra manter a tela e o modo PWA/navegador em dia.
+  function montarBotoesFoto(){
+    const pwa = ehPWAInstalado();
+    document.querySelectorAll('li.student-row').forEach(li=>{
+      let foto = li.querySelector('.student-foto');
+      if(!foto){
+        foto = document.createElement('button');
+        foto.type = 'button';
+        foto.className = 'student-foto';
+        const main = li.querySelector('.student-main');
+        if(!main) return;
+        main.insertBefore(foto, main.firstChild);
+      }
+      const id = li.dataset.id;
+      const temFoto = !!(id && fotosAlunos[id]);
+      foto.title = temFoto ? 'Ver/trocar foto' : (pwa ? 'Adicionar foto' : 'Foto do aluno');
+      foto.classList.toggle('clicavel', pwa && sessao.role === 'unidade');
+      foto.classList.toggle('sem-foto', !temFoto);
+      foto.onclick = (pwa && sessao.role === 'unidade') ? (()=>abrirModalFoto(id)) : null;
+      foto.style.backgroundImage = temFoto ? ('url("' + fotosAlunos[id] + '")') : '';
+      // Sem PWA e sem foto ainda: não tem nada útil pra mostrar nem fazer
+      // ali (não dá pra adicionar foto pelo navegador comum), então some.
+      foto.style.display = (!pwa && !temFoto) ? 'none' : 'flex';
+    });
+  }
+
+  function abrirModalFoto(studentId){
+    if(!ehPWAInstalado() || sessao.role !== 'unidade' || !studentId) return;
+    alunoAtualFoto = studentId;
+    const li = document.querySelector('li.student-row[data-id="' + studentId + '"]');
+    const nome = li ? (li.querySelector('.student-name')?.textContent.trim() || '') : '';
+    document.getElementById('fotoAlunoNome').textContent = nome;
+    document.getElementById('fotoStatusMsg').textContent = '';
+    atualizarPreviewModalFoto();
+    document.getElementById('modalFoto').style.display = 'flex';
+  }
+
+  function fecharModalFoto(){
+    document.getElementById('modalFoto').style.display = 'none';
+    alunoAtualFoto = null;
+    document.getElementById('fotoInputCamera').value = '';
+    document.getElementById('fotoInputGaleria').value = '';
+  }
+
+  function atualizarPreviewModalFoto(){
+    const img = document.getElementById('fotoPreviewImg');
+    const vazio = document.getElementById('fotoPreviewVazio');
+    const removerBtn = document.getElementById('fotoRemoverBtn');
+    const url = alunoAtualFoto ? fotosAlunos[alunoAtualFoto] : null;
+    if(url){
+      img.src = url;
+      img.style.display = 'block';
+      vazio.style.display = 'none';
+      removerBtn.style.display = 'inline-block';
+    }else{
+      img.style.display = 'none';
+      vazio.style.display = 'flex';
+      removerBtn.style.display = 'none';
+    }
+  }
+
+  // Redimensiona (maior lado até FOTO_MAX_LADO) e recomprime (JPEG,
+  // FOTO_QUALIDADE) a foto escolhida/tirada antes de guardar — fotos de
+  // celular costumam vir com vários MB, e como tudo aqui sincroniza no
+  // mesmo banco pequeno das outras unidades (jsonblob), é essencial manter
+  // cada foto bem leve pra não travar nem estourar o banco de ninguém.
+  function processarFotoSelecionada(file){
+    if(!file || !alunoAtualFoto) return;
+    const statusEl = document.getElementById('fotoStatusMsg');
+    statusEl.textContent = '⏳ Processando foto...';
+    const leitor = new FileReader();
+    leitor.onload = function(ev){
+      const img = new Image();
+      img.onload = function(){
+        const canvas = document.createElement('canvas');
+        let largura = img.width, altura = img.height;
+        const maior = Math.max(largura, altura);
+        if(maior > FOTO_MAX_LADO){
+          const escala = FOTO_MAX_LADO / maior;
+          largura = Math.round(largura * escala);
+          altura = Math.round(altura * escala);
+        }
+        canvas.width = largura;
+        canvas.height = altura;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, largura, altura);
+        const dataUrl = canvas.toDataURL('image/jpeg', FOTO_QUALIDADE);
+        if(dataUrl.length > FOTO_TAMANHO_MAX_B64){
+          statusEl.textContent = '⚠️ Essa foto ficou grande demais mesmo reduzida. Tente outra foto (mais simples).';
+          return;
+        }
+        fotosAlunos[alunoAtualFoto] = dataUrl;
+        atualizarPreviewModalFoto();
+        montarBotoesFoto();
+        statusEl.textContent = '✅ Foto salva.';
+        salvarLocalBackup();
+        salvarNoBancoDebounced();
+      };
+      img.onerror = function(){
+        statusEl.textContent = '⚠️ Não foi possível abrir essa imagem. Tente outra.';
+      };
+      img.src = ev.target.result;
+    };
+    leitor.onerror = function(){
+      statusEl.textContent = '⚠️ Não foi possível ler o arquivo.';
+    };
+    leitor.readAsDataURL(file);
+  }
+
+  function removerFotoAluno(){
+    if(!alunoAtualFoto || sessao.role !== 'unidade') return;
+    delete fotosAlunos[alunoAtualFoto];
+    atualizarPreviewModalFoto();
+    montarBotoesFoto();
+    document.getElementById('fotoStatusMsg').textContent = '';
+    salvarLocalBackup();
     salvarNoBancoDebounced();
   }
 
@@ -2990,6 +3196,10 @@
       presencas[novoId] = Object.assign({}, presencas[idAntigo]);
       delete presencas[idAntigo];
     }
+    if(idAntigo && fotosAlunos[idAntigo]){
+      fotosAlunos[novoId] = fotosAlunos[idAntigo];
+      delete fotosAlunos[idAntigo];
+    }
     const novoUl = novoCard.querySelector('ul.student-list');
     const novoLi = criarLiAluno(novoId, nome);
     inserirOrdenado(novoUl, novoLi);
@@ -2997,6 +3207,7 @@
       novoLi.querySelectorAll('.liga-field').forEach(el=>el.remove());
     }
     montarBotoesAcao();
+    montarBotoesFoto();
 
     const novoNivelEl = novoLi.querySelector('.nivel-select');
     if(novoNivelEl) novoNivelEl.value = dados.nivel;
@@ -3274,6 +3485,7 @@
     ordenarListas();
     montarBotoesAdicionar();
     montarBotoesAcao();
+    montarBotoesFoto();
     atualizarContadores();
     aplicarFiltroInicial();
     appInicializado = true;
